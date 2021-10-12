@@ -25,8 +25,10 @@
   (awscreds/cached-credentials-with-auto-refresh
    (reify awscreds/CredentialsProvider
      (fetch [_]
-       (when-let [creds (aws-vault-exec! profile)]
-         {:aws/access-key-id (:AccessKeyId creds)
-          :aws/secret-access-key (:SecretAccessKey creds)
-          :aws/session-token (:SessionToken creds)
-          ::awscreds/ttl (awscreds/calculate-ttl creds)})))))
+       (let [creds (aws-vault-exec! profile)]
+         (awscreds/valid-credentials
+          {:aws/access-key-id (:AccessKeyId creds)
+           :aws/secret-access-key (:SecretAccessKey creds)
+           :aws/session-token (:SessionToken creds)
+           ::awscreds/ttl (awscreds/calculate-ttl creds)}
+          (format "aws-vault with profile %s" profile)))))))

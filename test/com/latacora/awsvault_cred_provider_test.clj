@@ -33,7 +33,7 @@
     (swap! ctx conj {:type :call :fn 'fake-sh :args args})
     {:out (fake-env-output profile)}))
 
-(t/deftest e2e-test
+(t/deftest e2e-happy-path-test
   (let [profile (str (gensym))
         ctx (atom [{:type :profile :value profile}])
         n-calls (fn [] (->> @ctx (filter #(-> % :type (= :call))) count))]
@@ -56,3 +56,8 @@
           ;; have its own caching.
           (awscreds/fetch provider)
           (t/is (= 1 (n-calls))))))))
+
+(t/deftest e2e-sad-path-test
+  (with-redefs [sh/sh (constantly {:out ""})]
+    (let [provider (p/aws-vault-provider (str (gensym)))]
+      (t/is (nil? (awscreds/fetch provider))))))

@@ -1,16 +1,13 @@
 # backsaws
 
-A backsaw is a hand saw with a reinforced back, typically for precision cuts.
+<img src="https://raw.githubusercontent.com/latacora/backsaws/main/backsaws.svg">
 
-A credentials provider for the [Cognitect AWS API][awsapi] that grabs
-credentials from [aws-vault][awsvault].
+A backsaw is a hand saw with a reinforced back, typically for precision cuts.
+`backsaws` is a set of utilities for [Cognitect AWS API][awsapi].
 
 [awsapi]: https://github.com/cognitect-labs/aws-api
-[awsvault]: https://github.com/99designs/aws-vault
 
-## Usage
-
-### Installation
+## Installation
 
 Add the most recent git sha to `deps.edn`:
 
@@ -20,7 +17,11 @@ com.latacora/awsvault-cred-provider
  :git/sha "updateme"}
 ```
 
-### aws-vault cred provider
+## aws-vault cred provider
+
+A credentials provider backed by [`aws-vault`][awsvault].
+
+[awsvault]: https://github.com/99designs/aws-vault
 
 ```clojure
 (require '[com.latacora.backsaws.aws-vault :refer [aws-vault-provider]])

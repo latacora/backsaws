@@ -1,9 +1,9 @@
-(ns com.latacora.awsvault-cred-provider-test
+(ns com.latacora.backsaws.aws-vault-test
   (:require
    [clojure.test :as t]
    [cognitect.aws.credentials :as awscreds]
    [clojure.string :as str]
-   [com.latacora.awsvault-cred-provider :as p]
+   [com.latacora.backsaws.aws-vault :as av]
    [meander.epsilon :as m]
    [clojure.java.shell :as sh])
   (:import
@@ -38,7 +38,7 @@
         ctx (atom [{:type :profile :value profile}])
         n-calls (fn [] (->> @ctx (filter #(-> % :type (= :call))) count))]
     (with-redefs [sh/sh (partial fake-sh! ctx)]
-      (let [provider (p/aws-vault-provider profile)]
+      (let [provider (av/aws-vault-provider profile)]
         (t/testing "instantiating does not fetch creds"
           (t/is (= 0 (n-calls))))
 
@@ -59,5 +59,5 @@
 
 (t/deftest e2e-sad-path-test
   (with-redefs [sh/sh (constantly {:out ""})]
-    (let [provider (p/aws-vault-provider (str (gensym)))]
+    (let [provider (av/aws-vault-provider (str (gensym)))]
       (t/is (nil? (awscreds/fetch provider))))))

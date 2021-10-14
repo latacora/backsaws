@@ -1,9 +1,10 @@
 (ns build
   (:refer-clojure :exclude [test])
-  (:require [clojure.tools.build.api :as b] ; for b/git-count-revs
-            [org.corfield.build :as bb]))
+  (:require
+    [clojure.tools.build.api :as b] ; for b/git-count-revs
+    [org.corfield.build :as bb]))
 
-(def lib 'com.latacora/awsvault-cred-provider)
+(def lib 'com.latacora/backsaws)
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 
 (defn test "Run the tests." [opts]

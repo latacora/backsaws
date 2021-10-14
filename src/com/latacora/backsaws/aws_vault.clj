@@ -1,4 +1,4 @@
-(ns com.latacora.awsvault-cred-provider
+(ns com.latacora.backsaws.aws-vault
   (:require
    [clojure.java.shell :as sh]
    [cognitect.aws.credentials :as awscreds]

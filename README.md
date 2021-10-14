@@ -1,4 +1,6 @@
-# com.latacora/awsvault-cred-provider
+# backsaws
+
+A backsaw is a hand saw with a reinforced back, typically for precision cuts.
 
 A credentials provider for the [Cognitect AWS API][awsapi] that grabs
 credentials from [aws-vault][awsvault].
@@ -8,21 +10,25 @@ credentials from [aws-vault][awsvault].
 
 ## Usage
 
-`deps.edn`:
+### Installation
+
+Add the most recent git sha to `deps.edn`:
 
 ```clojure
 com.latacora/awsvault-cred-provider
 {:git/url "https://github.com/latacora/awsvault-cred-provider.git"
- :git/sha "1336740f6ce37dd5d2c7dc188ab441655677fec9"}
+ :git/sha "updateme"}
 ```
 
-```clojure
-(require '[com.latacora.awsvault-cred-provider :refer [aws-vault-provider]])
+### aws-vault cred provider
 
-(def provider (aws-vault-provider "idclip"))
+```clojure
+(require '[com.latacora.backsaws.aws-vault :refer [aws-vault-provider]])
+
+(def provider (aws-vault-provider "some-profile-name-aws-vault-groks"))
 (aws/invoke
-  (aws/client {:api :idkfa :credentials-provider provider})
-    {:op :Iddqd :request {}})
+  (aws/client {:api :s3 :credentials-provider provider})
+    {:op :ListBuckets :request {}})
 ```
 
 ## Development

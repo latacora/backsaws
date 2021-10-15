@@ -31,22 +31,26 @@
                        (complement next-marker)))]]))))
 
 (defn paginated-invoke
-  "Like [[aws/invoke]], but with pagination.
+  "Like [[aws/invoke]], but with pagination. Returns a lazy seq of results.
 
   You likely don't need to specify your own pagination behavior: if you don't,
   we'll try to infer some reasonable defaults. Pagination opts are as follows:
 
-  `results` is a fn from a response to the actual objects, e.g. :Accounts
-  or (comp :Instances :Reservation).
+  `:results` is a fn from a response to the actual objects, e.g. :Accounts
+  or (comp :Instances :Reservation). Note that because we're returning a lazy
+  seq of results, we can only collect one thing at a time. Some operations, e.g.
+  s3's ListObjectVersions, have two: DeletionMarkers and Versions. If you're
+  fine with having them intermingled, you can specify `:results` as something
+  like: `#(into (:Versions %) (:DeletionMarkers %))`.
 
-  `truncated?` is a fn that given a response, tells you if there's another one
+  `:truncated?` is a fn that given a response, tells you if there's another one
   or not. For some services, this is :IsTruncated (hence the name), but it is
   often `(complement next-marker)` (see below).
 
-  `next-marker` is a fn that given a response, returns the token/marker for the
+  `:next-marker` is a fn that given a response, returns the token/marker for the
   next page. This is often `:NextMarker`.
 
-  `marker-key` is the key in the next request that holds the next marker from
+  `:marker-key` is the key in the next request that holds the next marker from
   the previous response. This is often `:Marker` or `:StartingMarker`."
   ([client op-map]
    (let [paging-opts (infer-paging-opts client (:op op-map))]

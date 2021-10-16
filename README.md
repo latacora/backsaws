@@ -3,7 +3,8 @@
 <img src="https://raw.githubusercontent.com/latacora/backsaws/main/backsaws.svg">
 
 A backsaw is a hand saw with a reinforced back, typically for precision cuts.
-`backsaws` is a set of utilities for [Cognitect AWS API][awsapi].
+`backsaws` is a set of utilities for [Cognitect AWS API][awsapi]. *Back*ports from
+a future that never was, for the Cognitect *AWS* API. Get it?
 
 [awsapi]: https://github.com/cognitect-labs/aws-api
 

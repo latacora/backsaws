@@ -17,6 +17,19 @@ com.latacora/awsvault-cred-provider
  :git/sha "updateme"}
 ```
 
+## Pagination
+
+Figures out how to paginate an API and do it automagically.
+
+```clojure
+(require '[com.latacora.backsaws.pagination :refer [paginated-invoke]])
+
+(paginated-invoke
+  (aws/client {:api :organizations})
+  {:op :ListAccountsForParent
+   :request {:ParentId "ou-xyzzy"}})
+```
+
 ## aws-vault cred provider
 
 A credentials provider backed by [`aws-vault`][awsvault].

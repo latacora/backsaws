@@ -1,7 +1,8 @@
 (ns com.latacora.backsaws.pagination
   (:require
    [cognitect.aws.client.api :as aws]
-   [meander.epsilon :as m]))
+   [meander.epsilon :as m]
+   [clojure.set :as set]))
 
 (def ^:private next-markers
   [:NextToken :NextMarker :KeyMarker])
@@ -9,26 +10,54 @@
 (def ^:private marker-keys
   (into [:StartingToken] next-markers))
 
+(def ^:private is-truncated-keys
+  [:IsTruncated])
+
+(defn ^:private word-parts
+  [k]
+  (->> k name (re-seq #"[A-Z][a-z]*") set))
+
 (defn infer-paging-opts
   "For a given client + op, infer paging opts for [[paginated-invoke]]."
   ([client op]
    (infer-paging-opts client op {}))
   ([client op paging-opts]
-   (let [{:keys [request response]} (-> client aws/ops op)]
+   ;; Almost always, we'll find exactly one key (keyword, really) for a given
+   ;; result, but a handful of functions have two, e.g. s3's
+   ;; ListObjectVersions (which has both versions and deletions). When that
+   ;; happens, we run down both and merge them; it's up to the caller to
+   ;; distinguish (in all cases we've seen, this is reasonable). In the common
+   ;; case where there's exactly 1 kw we find, we just return that; this
+   ;; promotes introspectability.
+   (let [{:keys [request response]} (-> client aws/ops op)
+         sort-by-similarity (->> (word-parts op)
+                                 (partial set/intersection)
+                                 (comp - count)
+                                 (partial sort-by))
+         one-or-concat (comp
+                        (fn [[k :as ks]]
+                          (if (-> ks count (= 1))
+                            k (fn [resp] (mapcat resp ks))))
+                        sort-by-similarity)]
      (reduce
       (fn [opts [key default-fn]]
         (if-not (key opts)
           (assoc opts key (default-fn opts))
           opts)) ;; already set, leave it alone
       paging-opts
-      ;; we use a vec because the order in which we compute these matters:
-      [[:results (fn [_] (m/find response {?k [:seq-of _]} ?k))]
-       [:next-marker (fn [_] (->> next-markers (filter response) first))]
-       [:marker-key (fn [_] (->> marker-keys (filter request) first))]
-       [:truncated (fn [{:keys [next-marker]}]
-                     (if (:IsTruncated response)
-                       :IsTruncated
-                       (complement next-marker)))]]))))
+      ;; we use a vec because the order in which we compute these matters; the
+      ;; definition of :truncated? depends on that of :next-marker.
+      [[:results
+        (fn [_] (-> response (m/search {?k [:seq-of _]} ?k) one-or-concat))]
+       [:next-marker
+        (fn [_] (->> next-markers (filter response) one-or-concat))]
+       [:marker-key
+        (fn [_] (->> marker-keys (filter request) first))]
+       [:truncated?
+        (fn [{:keys [next-marker]}]
+          (or
+           (->> is-truncated-keys (filter response) first)
+           (complement next-marker)))]]))))
 
 (defn paginated-invoke
   "Like [[aws/invoke]], but with pagination. Returns a lazy seq of results.
@@ -39,9 +68,8 @@
   `:results` is a fn from a response to the actual objects, e.g. :Accounts
   or (comp :Instances :Reservation). Note that because we're returning a lazy
   seq of results, we can only collect one thing at a time. Some operations, e.g.
-  s3's ListObjectVersions, have two: DeletionMarkers and Versions. If you're
-  fine with having them intermingled, you can specify `:results` as something
-  like: `#(into (:Versions %) (:DeletionMarkers %))`.
+  s3's ListObjectVersions, have two: DeletionMarkers and Versions. By default,
+  these get intermingled via concatenation.
 
   `:truncated?` is a fn that given a response, tells you if there's another one
   or not. For some services, this is :IsTruncated (hence the name), but it is

@@ -4,21 +4,7 @@
    [clojure.test :as t]
    [cognitect.aws.client.api :as aws]
    [clojure.spec.alpha :as s]
-   [clojure.test.check.generators :as gen]))
-
-(defn ^:private complement*
-  "Like [[clojure.core/complement]] but with a metadata hint. See [[is-complement?]]."
-  [f]
-  (-> f complement (with-meta {::complement-of f})))
-
-(defn ^:private is-complement?
-  "Checks that `actual` is a [[clojure.core/complement]] that behaves like a given
-  `expected` [[complement*]]."
-  [expected actual]
-  (let [complement-of (-> expected meta ::complement-of)
-        map-with-key {complement-of "a truthy value"}]
-    (t/is (= true (expected {}) (actual {})))
-    (t/is (= false (expected map-with-key) (actual map-with-key)))))
+   [com.gfredericks.test.chuck.clojure-test :refer [checking]]))
 
 ;; Because paging-opts are often _but not always_ keywords (they're technically
 ;; just arbitrary functions), it's kind of annoying to test! You really just
@@ -27,39 +13,40 @@
 ;; sample data. So you can just test that the given functions react the same way
 ;; to all sample data :-)
 
+;; FWIW, I think this code mostly works, except it's hard to prove because
+;; sampling the generators breaks a lot, see:
+;; https://github.com/cognitect-labs/aws-api/issues/99
+
 (t/deftest inferred-paging-opts-tests
-  (t/are [api op expected]
-      (let [only-kws (fn [m] (select-keys
-                              m [:results :next-marker :marker-key]))
-            client (aws/client {:api api})
-            inferred (p/infer-paging-opts client op)]
-        (t/is (= (only-kws expected) (only-kws inferred)))
-        (let [[expected inferred] (map :truncated? [expected inferred])]
-          (if (keyword? expected)
-            (t/is (= expected inferred))
-            (is-complement? expected inferred))))
+  (doseq [[api op expected]
+          [[:organizations
+            :ListAccountsForParent
+            {:results :Accounts
+             :truncated? (complement :NextToken)
+             :next-marker :NextToken
+             :marker-key :StartingToken}]
 
-    :organizations
-    :ListAccountsForParent
-    {:results :Accounts
-     :truncated? (complement* :NextToken)
-     :next-marker :NextToken
-     :marker-key :StartingToken}
+           [:s3
+            :ListObjectVersions
+            {:results :Versions
+             :truncated? :IsTruncated
+             :next-marker :KeyMarker
+             :marker-key :KeyMarker}]]]
+    (let [client (aws/client {:api api})
+          inferred (p/infer-paging-opts client op)
+          {keywords true fns false} (group-by (comp keyword? val) expected)]
 
-    :s3
-    :ListObjectVersions
-    {:results :Versions
-     :truncated? :IsTruncated
-     :next-marker :KeyMarker
-     :marker-key :KeyMarker}))
+      ;; Keywords are easy to check:
+      (doseq [[k expected-fn] keywords]
+        (let [actual-fn (inferred k)]
+          (t/is (= expected-fn actual-fn) k)))
 
-(t/deftest paginated-invoke-tests
-  )
-
-(let [client (aws/client {:api :s3})]
-  (->>
-   (aws/response-spec-key client :ListObjectVersions)
-   (s/gen)
-   (gen/sample)
-   (group-by :NextVersionIdMarker)
-   keys))
+      ;; For arbitrary fns, we generate some samples and try against those to
+      ;; see if the fns behave the same:
+      (checking
+       ["inferred works same as reference" api op] 100
+       [resp (s/gen (aws/response-spec-key client op))]
+       (doseq [[k expected-fn] fns]
+         (let [actual-fn (inferred k)]
+           (t/is (fn? actual-fn))
+           (t/is (= (expected-fn resp) (actual-fn resp)) k)))))))

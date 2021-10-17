@@ -36,8 +36,12 @@
                                  (partial sort-by))
          one-or-concat (comp
                         (fn [[k :as ks]]
-                          (if (-> ks count (= 1))
-                            k (fn [resp] (mapcat resp ks))))
+                          (case (count ks)
+                            ;; 0, 1 special cases aren't necessary, but benefit
+                            ;; introspection
+                            0 ::not-paginated
+                            1 k
+                            (fn [resp] (mapcat resp ks))))
                         sort-by-similarity)]
      (reduce
       (fn [opts [key default-fn]]
@@ -52,12 +56,17 @@
        [:next-marker
         (fn [_] (->> next-markers (filter response) one-or-concat))]
        [:marker-key
-        (fn [_] (->> marker-keys (filter request) first))]
+        (fn [_]
+          (if request ;; does this fn take args at all?
+            (->> marker-keys (filter request) first)
+            ::not-paginated))]
        [:truncated?
-        (fn [{:keys [next-marker]}]
-          (or
-           (->> is-truncated-keys (filter response) first)
-           (complement next-marker)))]]))))
+        (fn [{:keys [next-marker marker-key]}]
+          (if (identical? marker-key ::not-paginated)
+            (constantly false)
+            (or
+             (->> is-truncated-keys (filter response) first)
+             (complement next-marker))))]]))))
 
 (defn paginated-invoke
   "Like [[aws/invoke]], but with pagination. Returns a lazy seq of results.

@@ -31,7 +31,14 @@
             {:results :Versions
              :truncated? :IsTruncated
              :next-marker :KeyMarker
-             :marker-key :KeyMarker}]]]
+             :marker-key :KeyMarker}]
+
+           [:s3
+            :ListBuckets
+            {:results :Buckets
+             :truncated? (constantly false)
+             :next-marker ::p/not-paginated
+             :marker-key ::p/not-paginated}]]]
     (let [client (aws/client {:api api})
           inferred (p/infer-paging-opts client op)
           {keywords true fns false} (group-by (comp keyword? val) expected)]

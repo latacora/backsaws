@@ -39,7 +39,8 @@
       ;; Keywords are easy to check:
       (doseq [[k expected-fn] keywords]
         (let [actual-fn (inferred k)]
-          (t/is (= expected-fn actual-fn) k)))
+          (t/is (= expected-fn actual-fn)
+                [api op k])))
 
       ;; For arbitrary fns, we generate some samples and try against those to
       ;; see if the fns behave the same:
@@ -49,4 +50,5 @@
        (doseq [[k expected-fn] fns]
          (let [actual-fn (inferred k)]
            (t/is (fn? actual-fn))
-           (t/is (= (expected-fn resp) (actual-fn resp)) k)))))))
+           (t/is (= (expected-fn resp) (actual-fn resp))
+                 [api op k])))))))

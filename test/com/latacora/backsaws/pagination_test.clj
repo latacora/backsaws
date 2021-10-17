@@ -24,7 +24,7 @@
             {:results :Accounts
              :truncated? (complement :NextToken)
              :next-marker :NextToken
-             :marker-key :StartingToken}]
+             :marker-key :NextToken}]
 
            [:s3
             :ListObjectVersions

@@ -14,7 +14,7 @@ Add the most recent git sha to `deps.edn`:
 
 ```clojure
 com.latacora/awsvault-cred-provider
-{:git/url "https://github.com/latacora/awsvault-cred-provider.git"
+{:git/url "https://github.com/latacora/backsaws.git"
  :git/sha "updateme"}
 ```
 

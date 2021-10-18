@@ -17,28 +17,30 @@
 ;; sampling the generators breaks a lot, see:
 ;; https://github.com/cognitect-labs/aws-api/issues/99
 
+(def samples
+  [[:organizations
+    :ListAccountsForParent
+    {:results :Accounts
+     :truncated? (#'p/complement* :NextToken)
+     :next-marker :NextToken
+     :marker-key :NextToken}]
+
+   [:s3
+    :ListObjectVersions
+    {:results :Versions
+     :truncated? :IsTruncated
+     :next-marker :KeyMarker
+     :marker-key :KeyMarker}]
+
+   [:s3
+    :ListBuckets
+    {:results :Buckets
+     :truncated? @#'p/constantly-false
+     :next-marker ::p/not-paginated
+     :marker-key ::p/not-paginated}]])
+
 (t/deftest inferred-paging-opts-tests
-  (doseq [[api op expected]
-          [[:organizations
-            :ListAccountsForParent
-            {:results :Accounts
-             :truncated? (complement :NextToken)
-             :next-marker :NextToken
-             :marker-key :NextToken}]
-
-           [:s3
-            :ListObjectVersions
-            {:results :Versions
-             :truncated? :IsTruncated
-             :next-marker :KeyMarker
-             :marker-key :KeyMarker}]
-
-           [:s3
-            :ListBuckets
-            {:results :Buckets
-             :truncated? (constantly false)
-             :next-marker ::p/not-paginated
-             :marker-key ::p/not-paginated}]]]
+  (doseq [[api op expected] samples]
     (let [client (aws/client {:api api})
           inferred (p/infer-paging-opts client op)
           {keywords true fns false} (group-by (comp keyword? val) expected)]

@@ -5,7 +5,7 @@
    [clojure.set :as set]))
 
 (def ^:private next-markers
-  [:NextToken :NextMarker :KeyMarker])
+  [:NextToken :NextMarker])
 
 (def ^:private marker-keys
   (into [:StartingToken] next-markers))
@@ -15,7 +15,25 @@
 
 (defn ^:private word-parts
   [k]
-  (->> k name (re-seq #"[A-Z][a-z]*") set))
+  (->> k name (re-seq #"[A-Z][a-z]*")))
+
+(defn ^:private complement*
+  "Returns a fn that is the complement of f.
+
+  Really only exists to make testing easier; see testing ns for details."
+  [f]
+  (-> (complement f) (with-meta {::complement-of f})))
+
+(defn ^:private mapcat-ks*
+  "Returns a fn that mapcats its argument over ks.
+
+  Really only exists to make testing easier; see testing ns for details."
+  [ks]
+  (-> (fn [resp] (mapcat resp ks)) (with-meta {::mapcat-of ks})))
+
+(def ^:private constantly-false
+  "`(constantly false)`. Only exists to aid testing."
+  (constantly false))
 
 (defn infer-paging-opts
   "For a given client + op, infer paging opts for [[paginated-invoke]]."
@@ -30,19 +48,16 @@
    ;; case where there's exactly 1 kw we find, we just return that; this
    ;; promotes introspectability.
    (let [{:keys [request response]} (-> client aws/ops op)
-         sort-by-similarity (->> (word-parts op)
-                                 (partial set/intersection)
-                                 (comp - count)
-                                 (partial sort-by))
+         shared-parts (->> op word-parts set (partial set/intersection))
+         similarity #(->> % word-parts set shared-parts count -)
          one-or-concat (comp
                         (fn [[k :as ks]]
                           (case (count ks)
-                            ;; 0, 1 special cases aren't necessary, but benefit
-                            ;; introspection
+                            ;; [0, 1] cases optional, but benefit introspection
                             0 ::not-paginated
                             1 k
-                            (fn [resp] (mapcat resp ks))))
-                        sort-by-similarity)]
+                            (mapcat-ks* ks)))
+                        (partial sort-by similarity))]
      (reduce
       (fn [opts [key default-fn]]
         (if-not (key opts)
@@ -63,10 +78,10 @@
        [:truncated?
         (fn [{:keys [next-marker marker-key]}]
           (if (identical? marker-key ::not-paginated)
-            (constantly false)
+            constantly-false
             (or
              (->> is-truncated-keys (filter response) first)
-             (complement next-marker))))]]))))
+             (complement* next-marker))))]]))))
 
 (defn paginated-invoke
   "Like [[aws/invoke]], but with pagination. Returns a lazy seq of results.
@@ -92,8 +107,9 @@
   ([client op-map]
    (let [paging-opts (infer-paging-opts client (:op op-map))]
      (paginated-invoke client op-map paging-opts)))
-  ([client op-map {:keys [results truncated? next-marker marker-key] :as paging-opts}]
-   (let [response (aws/invoke client op-map)]
+  ([client op-map paging-opts]
+   (let [{:keys [results truncated? next-marker marker-key]} paging-opts
+         response (aws/invoke client op-map)]
      (if (truncated? response)
        (lazy-cat
         (results response)

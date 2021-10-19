@@ -61,3 +61,21 @@
            (t/is (fn? actual-fn))
            (t/is (= (expected-fn resp) (actual-fn resp))
                  [api op k])))))))
+
+(def ^:private pagination-ns (comp #{(namespace ::p/x)} namespace))
+
+(defn ^:private comparable
+  [m]
+  (->>
+   (for [[k v :as item] m]
+     (if-some [meta-items (->> v meta (filter (comp pagination-ns key)) seq)]
+       [k (into {} meta-items)]
+       item))
+   (into {})))
+
+(t/deftest inferred-paging-opts-tests
+  (doseq [[api op expected] samples]
+    (t/testing [api op]
+      (let [client (aws/client {:api api})
+            inferred (p/infer-paging-opts client op)]
+        (t/is (= (comparable expected) (comparable inferred)))))))

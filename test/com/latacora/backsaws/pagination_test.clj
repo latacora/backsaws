@@ -55,10 +55,6 @@
             inferred (#'p/infer-paging-opts* client op)]
         (t/is (= (comparable expected) (comparable inferred)))))))
 
-(comment
-  (#'p/infer-paging-opts* (aws/client {:api :organizations} ) :ListAccountsForParent)
-  (#'p/infer-paging-opts* (aws/client {:api :s3} ) :ListObjectVersions))
-
 (t/deftest manual-paginated-invoke-tests
   (let [s3 (aws/client {:api :s3})]
     (with-redefs

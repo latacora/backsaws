@@ -7,15 +7,8 @@
 (def ^:private next-markers
   #{:NextToken :NextMarker})
 
-(def ^:private marker-keys
-  (into #{:StartingToken} next-markers))
-
 (def ^:private is-truncated-keys
   #{:IsTruncated})
-
-(defn ^:private word-parts
-  [k]
-  (->> k name (re-seq #"[A-Z][a-z]*")))
 
 (defn ^:private none-of?*
   [ks]
@@ -30,13 +23,6 @@
   Really only exists to make testing easier; see testing ns for details."
   [ks]
   (-> (fn [resp] (mapcat resp ks)) (with-meta {::mapcat-of ks})))
-
-(defn ^:private some-fn*
-  "Like `(apply some-fn ks)`.
-
-  Really only exists to make testing easier; see testing ns for details."
-  [ks]
-  (-> (apply some-fn ks) (with-meta {::some-of ks})))
 
 (defn ^:private constantly*
   "Like [[constantly]].
@@ -99,8 +85,7 @@
    ;; distinguish (in all cases we've seen, this is reasonable). In the common
    ;; case where there's exactly 1 kw we find, we just return that; this
    ;; promotes introspection.
-   (let [{:keys [request response]} (-> client aws/ops op)
-         sort-similar (partial sort-by #(- (similarity op %)))]
+   (let [{:keys [request response]} (-> client aws/ops op)]
      (->>
       (reduce
        (fn [opts [key default-fn]]
@@ -137,13 +122,13 @@
              (or
               (->> is-truncated-keys (filter response) first)
               (->> next-op-map meta ::marker-mapping keys none-of?*))))]])
-      (remove-phantom-results op)))))
+      remove-phantom-results))))
 
 (defn ^:private remove-phantom-results
   "Automatically determining the pagination opts may produce additional
   results (see [[paginated-invoke]]) that are not real results. This filters
   those out. It does that by comparing results against next markers."
-  [op {:keys [results next-op-map] :as paging-opts}]
+  [{:keys [results next-op-map] :as paging-opts}]
   (let [results-ks (-> results meta ::mapcat-of)
         next-marker-ks (-> next-op-map meta ::marker-mapping keys)]
     (if (or

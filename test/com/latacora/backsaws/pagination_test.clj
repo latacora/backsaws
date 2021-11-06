@@ -2,67 +2,41 @@
   (:require
    [com.latacora.backsaws.pagination :as p]
    [clojure.test :as t]
-   [cognitect.aws.client.api :as aws]
-   [clojure.spec.alpha :as s]
-   [com.gfredericks.test.chuck.clojure-test :refer [checking]]))
+   [cognitect.aws.client.api :as aws]))
 
 ;; Because paging-opts are often _but not always_ keywords (they're technically
-;; just arbitrary functions), it's kind of annoying to test! You really just
-;; want to test against end to end behavior, and that requires actual data.
+;; just arbitrary functions), it's kind of annoying to test! You'd expect to
+;; just want to test against end to end behavior, and that requires actual data.
 ;; Fortunately aws-api provides specs, and specs provide a way to generate
 ;; sample data. So you can just test that the given functions react the same way
-;; to all sample data :-)
-
-;; FWIW, I think this code mostly works, except it's hard to prove because
-;; sampling the generators breaks a lot, see:
+;; to all sample data :-) Unfortunately this doesn't work as well as you'd like
+;; because sampling the generators breaks a lot, see:
 ;; https://github.com/cognitect-labs/aws-api/issues/99
 
 (def samples
   [[:organizations
     :ListAccountsForParent
     {:results :Accounts
-     :truncated? (#'p/complement* :NextToken)
-     :next-marker :NextToken
-     :marker-key :NextToken}]
+     :truncated? (#'p/none-of?* #{:NextToken})
+     :next-op-map (#'p/next-op-map-from-mapping
+                   {:NextToken :NextToken})}]
 
    [:s3
     :ListObjectVersions
-    {:results :Versions
+    {:results (#'p/mapcat-ks* [:DeleteMarkers :Versions])
      :truncated? :IsTruncated
-     :next-marker :KeyMarker
-     :marker-key :KeyMarker}]
+     :next-op-map (#'p/next-op-map-from-mapping
+                   {:NextVersionIdMarker :VersionIdMarker
+                    :NextKeyMarker :KeyMarker})}]
 
    [:s3
     :ListBuckets
     {:results :Buckets
-     :truncated? @#'p/constantly-false
-     :next-marker ::p/not-paginated
-     :marker-key ::p/not-paginated}]])
+     :truncated? (#'p/constantly* false)
+     :next-op-map ::p/not-paginated}]])
 
-(t/deftest inferred-paging-opts-tests
-  (doseq [[api op expected] samples]
-    (let [client (aws/client {:api api})
-          inferred (p/infer-paging-opts client op)
-          {keywords true fns false} (group-by (comp keyword? val) expected)]
-
-      ;; Keywords are easy to check:
-      (doseq [[k expected-fn] keywords]
-        (let [actual-fn (inferred k)]
-          (t/is (= expected-fn actual-fn)
-                [api op k])))
-
-      ;; For arbitrary fns, we generate some samples and try against those to
-      ;; see if the fns behave the same:
-      (checking
-       ["inferred works same as reference" api op] 100
-       [resp (s/gen (aws/response-spec-key client op))]
-       (doseq [[k expected-fn] fns]
-         (let [actual-fn (inferred k)]
-           (t/is (fn? actual-fn))
-           (t/is (= (expected-fn resp) (actual-fn resp))
-                 [api op k])))))))
-
-(def ^:private pagination-ns (comp #{(namespace ::p/x)} namespace))
+(def ^:private pagination-ns
+  (comp #{(namespace ::p/x)} namespace))
 
 (defn ^:private comparable
   [m]
@@ -77,5 +51,77 @@
   (doseq [[api op expected] samples]
     (t/testing [api op]
       (let [client (aws/client {:api api})
-            inferred (p/infer-paging-opts client op)]
+            ;; we don't use the memoized public variant to aid in development
+            inferred (#'p/infer-paging-opts* client op)]
         (t/is (= (comparable expected) (comparable inferred)))))))
+
+(comment
+  (#'p/infer-paging-opts* (aws/client {:api :organizations} ) :ListAccountsForParent)
+  (#'p/infer-paging-opts* (aws/client {:api :s3} ) :ListObjectVersions))
+
+(t/deftest manual-paginated-invoke-tests
+  (let [s3 (aws/client {:api :s3})]
+    (with-redefs
+      [aws/invoke
+       (fn [client {:keys [VersionIdMarker KeyMarker]}]
+         (t/is (identical? s3 client))
+         (case [VersionIdMarker KeyMarker]
+           [nil nil]
+           {:Versions [{:Key "a" :VersionId 1}
+                       {:Key "a" :VersionId 2}]
+            :DeleteMarkers [{:Key "a" :VersionId 3}]
+            :NextKeyMarker "b"
+            :IsTruncated true}
+
+           [nil "b"]
+           {:Versions [{:Key "b" :VersionId 1}
+                       {:Key "b" :VersionId 2}]
+            :DeleteMarkers []
+            :NextKeyMarker "b"
+            :NextVersionIdMarker 3
+            :IsTruncated true}
+
+           [3 "b"]
+           {:Versions [{:Key "b" :VersionId 3}]
+            :DeleteMarkers []
+            :IsTruncated false}))]
+      (p/paginated-invoke s3 {:op :ListObjectVersions})))
+
+  (let [s3 (aws/client {:api :s3})]
+    (with-redefs
+      [aws/invoke
+       (fn [client {:keys [VersionIdMarker KeyMarker]}]
+         (t/is (identical? s3 client))
+         (case [VersionIdMarker KeyMarker]
+           [nil nil]
+           {:Versions [{:Key "a" :VersionId 1}
+                       {:Key "a" :VersionId 2}]
+            :DeleteMarkers [{:Key "a" :VersionId 3}]
+            :NextKeyMarker "b"
+            :IsTruncated true}
+
+           [nil "b"]
+           {:Versions [{:Key "b" :VersionId 1}
+                       {:Key "b" :VersionId 2}]
+            :DeleteMarkers []
+            :NextKeyMarker "b"
+            :NextVersionIdMarker 3
+            :IsTruncated true}
+
+           [3 "b"]
+           {:Versions [{:Key "b" :VersionId 3}]
+            :DeleteMarkers []}))]
+      (p/paginated-invoke s3 {:op :ListObjectVersions}))))
+
+(t/deftest next-op-map-tests
+  (t/is
+   (= {:op :ListObjectVersions
+       :VersionIdMarker :x
+       :KeyMarker :y}
+      (let [op-map {:op :ListObjectVersions}
+            resp {:NextVersionIdMarker :x
+                  :NextKeyMarker :y}
+            mapping {:NextVersionIdMarker :VersionIdMarker
+                     :NextKeyMarker :KeyMarker}
+            next-op-map (#'p/next-op-map-from-mapping mapping)]
+        (next-op-map op-map resp)))))

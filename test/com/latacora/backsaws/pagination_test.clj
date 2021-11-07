@@ -17,15 +17,15 @@
   [[:organizations
     :ListAccountsForParent
     {:results :Accounts
-     :truncated? (#'p/none-of?* #{:NextToken})
-     :next-op-map (#'p/next-op-map-from-mapping
-                   {:NextToken :NextToken})}]
+     :truncated? (#'p/some-fn* #{:NextToken})
+     :next-request (#'p/next-request-from-mapping
+                    {:NextToken :NextToken})}]
 
    [:s3
     :ListObjectVersions
     {:results (#'p/mapcat-ks* [:DeleteMarkers :Versions])
      :truncated? :IsTruncated
-     :next-op-map (#'p/next-op-map-from-mapping
+     :next-request (#'p/next-request-from-mapping
                    {:NextVersionIdMarker :VersionIdMarker
                     :NextKeyMarker :KeyMarker})}]
 
@@ -33,7 +33,7 @@
     :ListBuckets
     {:results :Buckets
      :truncated? (#'p/constantly* false)
-     :next-op-map ::p/not-paginated}]])
+     :next-request ::p/not-paginated}]])
 
 (def ^:private pagination-ns
   (comp #{(namespace ::p/x)} namespace))
@@ -56,12 +56,34 @@
         (t/is (= (comparable expected) (comparable inferred)))))))
 
 (t/deftest manual-paginated-invoke-tests
+  (let [orgs (aws/client {:api :organizations})]
+    (with-redefs
+      [aws/invoke
+       (fn [client {:keys [op request]}]
+         (t/is (identical? orgs client))
+         (t/is (= op :ListAccountsForParent))
+         (condp = request
+           {:ParentId "xyzzy"}
+           {:Accounts [{:AccountId 1}]
+            :NextToken "iddqd"}
+
+           {:ParentId "xyzzy" :NextToken "iddqd"}
+           {:Accounts [{:AccountId 2}]}))]
+      (t/is
+       (=
+        [{:AccountId 1} {:AccountId 2}]
+        (p/paginated-invoke
+         orgs
+         {:op :ListAccountsForParent
+          :request {:ParentId "xyzzy"}})))))
+
   (let [s3 (aws/client {:api :s3})]
     (with-redefs
       [aws/invoke
-       (fn [client {:keys [VersionIdMarker KeyMarker]}]
+       (fn [client {:keys [op request]}]
          (t/is (identical? s3 client))
-         (case [VersionIdMarker KeyMarker]
+         (t/is (= op :ListObjectVersions))
+         (case [(:VersionIdMarker request) (:KeyMarker request)]
            [nil nil]
            {:Versions [{:Key "a" :VersionId 1}
                        {:Key "a" :VersionId 2}]
@@ -81,43 +103,39 @@
            {:Versions [{:Key "b" :VersionId 3}]
             :DeleteMarkers []
             :IsTruncated false}))]
-      (p/paginated-invoke s3 {:op :ListObjectVersions})))
-
-  (let [s3 (aws/client {:api :s3})]
-    (with-redefs
-      [aws/invoke
-       (fn [client {:keys [VersionIdMarker KeyMarker]}]
-         (t/is (identical? s3 client))
-         (case [VersionIdMarker KeyMarker]
-           [nil nil]
-           {:Versions [{:Key "a" :VersionId 1}
-                       {:Key "a" :VersionId 2}]
-            :DeleteMarkers [{:Key "a" :VersionId 3}]
-            :NextKeyMarker "b"
-            :IsTruncated true}
-
-           [nil "b"]
-           {:Versions [{:Key "b" :VersionId 1}
-                       {:Key "b" :VersionId 2}]
-            :DeleteMarkers []
-            :NextKeyMarker "b"
-            :NextVersionIdMarker 3
-            :IsTruncated true}
-
-           [3 "b"]
-           {:Versions [{:Key "b" :VersionId 3}]
-            :DeleteMarkers []}))]
       (p/paginated-invoke s3 {:op :ListObjectVersions}))))
 
-(t/deftest next-op-map-tests
+(t/deftest next-request-tests
   (t/is
-   (= {:op :ListObjectVersions
-       :VersionIdMarker :x
+   (= {:VersionIdMarker :x
        :KeyMarker :y}
-      (let [op-map {:op :ListObjectVersions}
-            resp {:NextVersionIdMarker :x
-                  :NextKeyMarker :y}
+      (let [request nil
+            response {:NextVersionIdMarker :x
+                      :NextKeyMarker :y}
             mapping {:NextVersionIdMarker :VersionIdMarker
                      :NextKeyMarker :KeyMarker}
-            next-op-map (#'p/next-op-map-from-mapping mapping)]
-        (next-op-map op-map resp)))))
+            next-request (#'p/next-request-from-mapping mapping)]
+        (next-request request response))))
+
+  (t/is
+   (= {:VersionIdMarker :x
+       :KeyMarker :y
+       :SomeOtherValue :z}
+      (let [request {:SomeOtherValue :z}
+            response {:NextVersionIdMarker :x
+                      :NextKeyMarker :y}
+            mapping {:NextVersionIdMarker :VersionIdMarker
+                     :NextKeyMarker :KeyMarker}
+            next-request (#'p/next-request-from-mapping mapping)]
+        (next-request request response)))))
+
+(t/deftest some-fn*-tests
+  (let [pred (#'p/some-fn* [:a :b])]
+    ;; This works as a truncated? predicate, so absence of keys should be false,
+    ;; presence should be true (because it means that there's a next token or
+    ;; whatever).
+    (t/is (not (pred {})))
+    (t/is (not (pred nil)))
+    (t/is (pred {:a 1}))
+    (t/is (pred {:b 1}))
+    (t/is (pred {:a 1 :b 1}))))

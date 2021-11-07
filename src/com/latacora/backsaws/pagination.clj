@@ -10,12 +10,11 @@
 (def ^:private is-truncated-keys
   #{:IsTruncated})
 
-(defn ^:private none-of?*
+(defn ^:private some-fn*
   [ks]
   (->
    (apply some-fn ks)
-   (complement)
-   (with-meta {::none-of (set ks)})))
+   (with-meta {::some-of (set ks)})))
 
 (defn ^:private mapcat-ks*
   "Returns a fn that mapcats its argument over ks.
@@ -31,14 +30,14 @@
   [x]
   (-> (constantly x) (with-meta {::constantly x})))
 
-(defn ^:private next-op-map-from-mapping
+(defn ^:private next-request-from-mapping
   [marker-mapping]
   (->
-   (fn [op-map response]
+   (fn [request response]
      (->>
       (for [[resp-k req-k] marker-mapping]
         [req-k (resp-k response)])
-      (into op-map)))
+      (into (or request {}))))
    (with-meta {::marker-mapping marker-mapping})))
 
 (defn ^:private one-or-concat
@@ -98,7 +97,7 @@
        [[:results
          (fn [_]
            (-> response (m/search {?k [:seq-of _]} ?k) sort one-or-concat))]
-        [:next-op-map
+        [:next-request
          (fn [_]
            (let [resp-keys (-> response keys set)
                  matches #(for [c resp-keys :when (re-matches % (name c))] c)
@@ -114,23 +113,23 @@
                         :let [similarity (partial similarity next-marker)]]
                     [next-marker (apply max-key similarity req-keys)])
                   (into {})
-                  next-op-map-from-mapping)))))]
+                  next-request-from-mapping)))))]
         [:truncated?
-         (fn [{:keys [next-op-map]}]
-           (if (identical? next-op-map ::not-paginated)
+         (fn [{:keys [next-request]}]
+           (if (identical? next-request ::not-paginated)
              (constantly* false)
              (or
               (->> is-truncated-keys (filter response) first)
-              (->> next-op-map meta ::marker-mapping keys none-of?*))))]])
+              (->> next-request meta ::marker-mapping keys some-fn*))))]])
       remove-phantom-results))))
 
 (defn ^:private remove-phantom-results
   "Automatically determining the pagination opts may produce additional
   results (see [[paginated-invoke]]) that are not real results. This filters
   those out. It does that by comparing results against next markers."
-  [{:keys [results next-op-map] :as paging-opts}]
+  [{:keys [results next-request] :as paging-opts}]
   (let [results-ks (-> results meta ::mapcat-of)
-        next-marker-ks (-> next-op-map meta ::marker-mapping keys)]
+        next-marker-ks (-> next-request meta ::marker-mapping keys)]
     (if (or
          (nil? results-ks)
          (= (count results-ks) (count next-marker-ks)))
@@ -168,17 +167,17 @@
   or not. For some services, this is :IsTruncated (hence the name), but it is
   often based on the existence of next marker keys in the previous response.
 
-  `:next-op-map` takes the last op map (request) and last response and returns
-  the next one."
+  `:next-request` takes the last request (part of the op-map) and last response
+  and returns the next request."
   ([client op-map]
    (let [paging-opts (infer-paging-opts client (:op op-map))]
      (paginated-invoke client op-map paging-opts)))
   ([client op-map paging-opts]
-   (let [{:keys [results truncated? next-op-map]} paging-opts
+   (let [{:keys [results truncated? next-request]} paging-opts
          response (aws/invoke client op-map)]
      (if (truncated? response)
        (lazy-cat
         (results response)
-        (let [op-map (next-op-map op-map response)]
+        (let [op-map (update op-map :request next-request response)]
           (paginated-invoke client op-map paging-opts)))
        (results response)))))

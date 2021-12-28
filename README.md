@@ -13,7 +13,7 @@ a future that never was, for the Cognitect *AWS* API. Get it?
 Add the most recent git sha to `deps.edn`:
 
 ```clojure
-com.latacora/awsvault-cred-provider
+com.latacora/backsaws
 {:git/url "https://github.com/latacora/backsaws.git"
  :git/sha "updateme"}
 ```

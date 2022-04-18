@@ -49,7 +49,7 @@ A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault]
 A [`CredentialsProvider`][CredentialsProvider] that supports
 [`credential_process`][credential_process].
 
-This requires the [AWS CLI profile] (which could be `default`) to have the key
+This requires the active [AWS CLI profile] (which could be `default`) to have the key
 `credential_process` set to a command that this provider can invoke to get valid credentials.
 
 ```clojure
@@ -60,14 +60,8 @@ This requires the [AWS CLI profile] (which could be `default`) to have the key
   {:op :ListBuckets})
 ```
 
-You can specify the profile name by supplying it as the first argument, for example:
-
-```clojure
-(cp/provider "some-profile-name")
-```
-
-When invoked without arguments `cp/provider` will look for a profile name in the environment
-variable `AWS_PROFILE`, or the Java System Property `aws.profile`, or will fall back to `default`.
+This has been tested with [aws-sso-util] — specifically with its command
+[credential-process][aws-sso-util-credential-process].
 
 
 ## Development
@@ -93,6 +87,8 @@ Distributed under the Eclipse Public License version 1.0.
 
 
 [AWS CLI Profile]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html
+[aws-sso-util]: https://github.com/benkehoe/aws-sso-util
+[aws-sso-util-credential-process]: https://github.com/benkehoe/aws-sso-util/blob/39cf9431e3ae03dc9d396ff6f4b80c5fc7889c85/docs/credential-process.md
 [awsvault]: https://github.com/99designs/aws-vault
 [CredentialsProvider]: https://github.com/cognitect-labs/aws-api#credentials
 [credential_process]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html

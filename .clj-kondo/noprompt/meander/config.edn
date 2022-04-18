@@ -1,0 +1,8 @@
+;; See:
+;;   https://github.com/clj-kondo/clj-kondo/issues/1647
+;;   https://clojurians-log.clojureverse.org/clj-kondo/2022-04-03
+{:linters {:unresolved-symbol {:exclude [(meander.epsilon/match)
+                                         (meander.epsilon/find)
+                                         (meander.epsilon/search)
+                                         (meander.epsilon/rewrite)]}
+           :not-a-function {:level :off}}}

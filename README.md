@@ -31,11 +31,9 @@ Figures out how to paginate an API and do it automagically.
    :request {:ParentId "ou-xyzzy"}})
 ```
 
-## aws-vault cred provider
+## aws-vault `CredentialsProvider`
 
-A credentials provider backed by [`aws-vault`][awsvault].
-
-[awsvault]: https://github.com/99designs/aws-vault
+A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault].
 
 ```clojure
 (require '[com.latacora.backsaws.aws-vault :refer [aws-vault-provider]])
@@ -46,18 +44,55 @@ A credentials provider backed by [`aws-vault`][awsvault].
     {:op :ListBuckets :request {}})
 ```
 
+## `credential_process` `CredentialsProvider`
+
+A [`CredentialsProvider`][CredentialsProvider] that supports
+[`credential_process`][credential_process].
+
+This requires the [AWS CLI profile] (which could be `default`) to have the key
+`credential_process` set to a command that this provider can invoke to get valid credentials.
+
+```clojure
+(require '[com.latacora.backsaws.credential-process :as cp])
+
+(aws/invoke
+  (sso/client {:api :s3 :credentials-provider (cp/provider)})
+  {:op :ListBuckets})
+```
+
+You can specify the profile name by supplying it as the first argument, for example:
+
+```clojure
+(cp/provider "some-profile-name")
+```
+
+When invoked without arguments `cp/provider` will look for a profile name in the environment
+variable `AWS_PROFILE`, or the Java System Property `aws.profile`, or will fall back to `default`.
+
+
 ## Development
+
+Run the tests:
+
+    clojure -M:test
 
 Run tests, linters etc for CI:
 
-> clojure -A:deps -T:build ci
+    clojure -A:deps -T:build ci
 
 Deploy to Clojars:
 
-> clojure -A:deps -T:build deploy
+    clojure -A:deps -T:build deploy
+
 
 ## License
 
 Copyright © Latacora
 
 Distributed under the Eclipse Public License version 1.0.
+
+
+[AWS CLI Profile]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html
+[awsvault]: https://github.com/99designs/aws-vault
+[CredentialsProvider]: https://github.com/cognitect-labs/aws-api#credentials
+[credential_process]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html

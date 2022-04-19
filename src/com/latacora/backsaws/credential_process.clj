@@ -80,7 +80,7 @@
               (mapv #(str/replace % "\"" "\\\"")
                     cmd)
               cmd)
-        ;; _ (binding [*out* *err*] (prn :cmd cmd))
+        _ (log/debugf "command: %s" cmd)
         {:keys [exit out err]} (apply shell/sh cmd)]
     (if (zero? exit)
       out
@@ -97,7 +97,6 @@
      :Expiration Expiration}))  ;; Expiration is used by creds/calculate-ttl
 
 
-;; TODO: Why does this sometimes return nil and sometimes return an empty map?
 ;; TODO: Maybe this should look for `credential_process` in both the CLI config file *and* its creds
 ;;       file (first checking one and then, if not found, falling back to the other).
 (defn provider
@@ -131,5 +130,4 @@
               (log/debugf "Creds: %s" creds)
               (creds/valid-credentials creds "credential_process"))
             (catch Throwable t
-              (log/error t "Error fetching credentials from credential_process")
-              {}))))))))
+              (log/error t "Error fetching credentials from credential_process")))))))))

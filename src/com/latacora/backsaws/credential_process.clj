@@ -74,7 +74,7 @@
                   (str/includes? "win")))
 
 
-(defn run-credential-process-cmd [cmd]
+(defn- run-credential-process-cmd [cmd]
   (let [cmd (parse-cmd cmd)
         cmd (if windows?
               (mapv #(str/replace % "\"" "\\\"")
@@ -87,19 +87,21 @@
       (throw (ex-info (str "Non-zero exit: " (pr-str err)) {})))))
 
 
-(defn get-credentials-via-cmd [cmd]
+(defn- get-credentials-via-cmd [cmd]
   (let [credential-map (json/read-str (run-credential-process-cmd cmd))
         {:strs [AccessKeyId SecretAccessKey SessionToken Expiration]} credential-map]
     (assert (and AccessKeyId SecretAccessKey))
-    {"aws_access_key_id" AccessKeyId
-     "aws_secret_access_key" SecretAccessKey
-     "aws_session_token" SessionToken
-     :Expiration Expiration}))
+    {:aws/access-key-id     AccessKeyId
+     :aws/secret-access-key SecretAccessKey
+     :aws/session-token     SessionToken
+     :Expiration Expiration}))  ;; Expiration is used by creds/calculate-ttl
 
 
+;; TODO: Why does this sometimes return nil and sometimes return an empty map?
+;; TODO: Maybe this should look for `credential_process` in both the CLI config file *and* its creds
+;;       file (first checking one and then, if not found, falling back to the other).
 (defn provider
   "Like profile-credentials-provider but with support for credential_process
-
    See https://github.com/cognitect-labs/aws-api/issues/73"
   ([]
    (provider (or (u/getenv "AWS_PROFILE")
@@ -107,25 +109,27 @@
                  "default")))
 
   ([profile-name]
-   (provider profile-name (or (io/file (u/getenv "AWS_CREDENTIAL_PROFILES_FILE"))
-                              (io/file (u/getProperty "user.home") ".aws" "credentials"))))
+   (provider profile-name (or (io/file (u/getenv "AWS_CONFIG_FILE"))
+                              (io/file (u/getProperty "user.home") ".aws" "config"))))
 
-  ([profile-name ^java.io.File f]
-   (creds/auto-refreshing-credentials
+  ([profile-name ^java.io.File config-file]
+   (creds/cached-credentials-with-auto-refresh
     (reify creds/CredentialsProvider
       (fetch [_]
-        (when (.exists f)
+        (when (.exists config-file)
           (try
-            (let [profile (get (config/parse f) profile-name)
-                  profile (if-let [cmd (get profile "credential_process")]
-                            (merge profile (get-credentials-via-cmd cmd))
-                            profile)]
-              (creds/valid-credentials
-               {:aws/access-key-id     (get profile "aws_access_key_id")
-                :aws/secret-access-key (get profile "aws_secret_access_key")
-                :aws/session-token     (get profile "aws_session_token")
-                ::creds/ttl (creds/calculate-ttl profile)}
-               "aws profiles file"))
+            (let [config (config/parse config-file)
+                  profile (or (get config profile-name)
+                              (throw (ex-info (format "No profile named `%s` found" profile-name)
+                                              {:config-file (str config-file)
+                                               :profiles-found (keys config)})))
+                  cmd (or (get profile "credential_process")
+                          (throw (ex-info "Profile key `credential_process` not found"
+                                          {:profile-name profile-name :profile profile})))
+                  creds (as-> (get-credentials-via-cmd cmd) creds
+                              (assoc creds ::creds/ttl (creds/calculate-ttl creds)))]
+              (log/debugf "Creds: %s" creds)
+              (creds/valid-credentials creds "credential_process"))
             (catch Throwable t
-              (log/error t "Error fetching credentials from aws profiles file")
+              (log/error t "Error fetching credentials from credential_process")
               {}))))))))

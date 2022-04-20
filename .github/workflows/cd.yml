@@ -1,0 +1,29 @@
+name: Continuous Delivery
+
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+          java-package: jre
+      - name: Install Clojure tools
+        uses: DeLaGuardo/setup-clojure@5.0
+        with:
+          cli: 1.11.1.1105
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # To avoid rate limit errors
+      - name: Cache Dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gitlibs
+            ~/.m2/repository
+          key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+      - run: clojure -M:test

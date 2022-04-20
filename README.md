@@ -36,12 +36,11 @@ Figures out how to paginate an API and do it automagically.
 A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault].
 
 ```clojure
-(require '[com.latacora.backsaws.aws-vault :refer [aws-vault-provider]])
+(require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(def provider (aws-vault-provider "some-profile-name-aws-vault-groks"))
-(aws/invoke
-  (aws/client {:api :s3 :credentials-provider provider})
-    {:op :ListBuckets :request {}})
+(def provider (cp/aws-vault-provider "some-profile-name-aws-vault-groks"))
+(aws/invoke (aws/client {:api :s3 :credentials-provider provider})
+            {:op :ListBuckets})
 ```
 
 ## `credential_process` `CredentialsProvider`
@@ -53,11 +52,11 @@ This requires the active [AWS CLI profile] (which could be `default`) to have th
 `credential_process` set to a command that this provider can invoke to get valid credentials.
 
 ```clojure
-(require '[com.latacora.backsaws.credential-process :as cp])
+(require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(aws/invoke
-  (sso/client {:api :s3 :credentials-provider (cp/provider)})
-  {:op :ListBuckets})
+(def provider (cp/credential-process-provider))
+(aws/invoke (sso/client {:api :s3 :credentials-provider provider})
+            {:op :ListBuckets})
 ```
 
 This has been tested with [aws-sso-util] — specifically with its command

@@ -1,10 +1,10 @@
-(ns com.latacora.backsaws.credential-process-test
+(ns com.latacora.backsaws.credentials-providers.credential-process-test
   (:require [clojure.data.json :as json]
             [clojure.java.shell :as sh]
             [clojure.test :refer [deftest is testing]]
             [clojure.tools.logging :as log]
             [cognitect.aws.credentials :as awscreds]
-            [com.latacora.backsaws.credential-process :as cp]
+            [com.latacora.backsaws.credentials-providers :as cp]
             [meander.epsilon :as m])
   (:import [java.io File]
            [java.time Instant]
@@ -69,7 +69,7 @@
         ctx (atom [{:type :profile :value profile}])
         n-calls (fn [] (->> @ctx (filter #(-> % :type (= :call))) count))]
     (with-redefs [sh/sh (partial fake-sh! ctx)]
-      (let [provider (cp/provider profile config-file)]
+      (let [provider (cp/credential-process-provider profile config-file)]
         (testing "instantiating does not fetch creds"
           (is (zero? (n-calls))))
 
@@ -91,5 +91,5 @@
   (with-redefs [sh/sh (constantly {:out "" :exit 1 :err "ruh roh"})]
     (let [profile (str (gensym))
           config-file (write-config-file profile)
-          provider (cp/provider profile config-file)]
+          provider (cp/credential-process-provider profile config-file)]
       (is (nil? (awscreds/fetch provider))))))

@@ -31,18 +31,28 @@ Figures out how to paginate an API and do it automagically.
    :request {:ParentId "ou-xyzzy"}})
 ```
 
+
 ## aws-vault `CredentialsProvider`
 
 A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault].
 
 ```clojure
-(require '[com.latacora.backsaws.aws-vault :refer [aws-vault-provider]])
+(require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(def provider (aws-vault-provider "some-profile-name-aws-vault-groks"))
-(aws/invoke
-  (aws/client {:api :s3 :credentials-provider provider})
-    {:op :ListBuckets :request {}})
+(def provider
+  ;; Either specify a profile name or let the provider get it from either the environment
+  ;; variable `AWS_PROFILE` the Java system property `aws.profile` *or* fall back to `default`
+  (if-let [profile-name (config/get :aws-profile-name)]
+    (cp/aws-vault-provider profile-name)
+    (cp/aws-vault-provider))
+
+;; Include the provider in the config when creating a client
+(def client (aws/client {:api :s3 :credentials-provider provider}))
+
+;; Use the client normally
+(aws/invoke client {:op :ListBuckets})
 ```
+
 
 ## `credential_process` `CredentialsProvider`
 
@@ -53,15 +63,50 @@ This requires the active [AWS CLI profile] (which could be `default`) to have th
 `credential_process` set to a command that this provider can invoke to get valid credentials.
 
 ```clojure
-(require '[com.latacora.backsaws.credential-process :as cp])
+(require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(aws/invoke
-  (sso/client {:api :s3 :credentials-provider (cp/provider)})
-  {:op :ListBuckets})
+(def provider
+  ;; Either specify a profile name or let the provider get it from either the environment
+  ;; variable `AWS_PROFILE` the Java system property `aws.profile` *or* fall back to `default`
+  (if-let [profile-name (config/get :aws-profile-name)]
+    (cp/credential-process-provider profile-name)
+    (cp/credential-process-provider))
+
+;; Include the provider in the config when creating a client
+(def client (aws/client {:api :s3 :credentials-provider provider}))
+
+;; Use the client normally
+(aws/invoke client {:op :ListBuckets})
 ```
 
 This has been tested with [aws-sso-util] — specifically with its command
 [credential-process][aws-sso-util-credential-process].
+
+
+## Chaining `CredentialsProvider`s
+
+If you’d like your program to look for credentials in various places just like `aws-api` does by
+default, only you’d like it to *also* look at `aws-vault` and/or `credential_process` using one or
+both of the `CredentialProvider`s above, you can accomplish this via `chain-credentials-provider`:
+
+```clojure
+(require '[cognitect.aws.client.api :as aws]
+         '[cognitect.aws.credentials :as creds]
+         '[com.latacora.backsaws.credentials-providers :as cp])
+
+(def provider
+  (let [http-client (aws/default-http-client)]
+    (creds/chain-credentials-provider
+     [(creds/environment-credentials-provider)
+      (creds/system-property-credentials-provider)
+      (creds/profile-credentials-provider)
+      (container-credentials-provider http-client)
+      (instance-profile-credentials-provider http-client)
+      (cp/aws-vault-provider)
+      (cp/credential-process-provider)])))
+```
+
+You can rearrange those entries into whatever order you’d like, remove any of those, etc.
 
 
 ## Development

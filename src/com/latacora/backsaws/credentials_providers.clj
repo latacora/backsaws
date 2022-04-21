@@ -1,19 +1,7 @@
-;; This code was copied from the project pod-babashka-aws and then modified by Latacora.
-;;
-;; Original file:
-;; https://github.com/babashka/pod-babashka-aws/blob/81e200692c8b637529cc48f7c51f2e5777c586c5/src/pod/babashka/aws/impl/aws/credentials.clj
-;;
-;; pod-babashka-aws is copyright © 2020 Michiel Borkent, Jeroen van Dijk, Rahul De and Valtteri
-;; Harmainen and is distributed under the Apache License 2.0:
-;; https://github.com/babashka/pod-babashka-aws/blob/81e200692c8b637529cc48f7c51f2e5777c586c5/LICENSE
-;;
-;; Modifications copyright © 2022 Latacora and distributed under the Eclipse Public License 1.0; see
-;; LICENSE in the root of this code repository.
-
-(ns com.latacora.backsaws.credential-process
+(ns com.latacora.backsaws.credentials-providers
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
+            [clojure.java.shell :as sh]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cognitect.aws.config :as config]
@@ -22,6 +10,41 @@
 
 
 (set! *warn-on-reflection* true)
+
+
+(defn ^:private aws-vault-exec!
+  [profile]
+  (let [raw-vars (sh/sh "aws-vault" "exec" profile "--" "env" "-0")
+        xf (comp
+            (filter #(str/starts-with? % "AWS_"))
+            (keep (fn [line]
+                    (let [[k v] (str/split line #"=" 2)
+                          k (case k
+                              "AWS_ACCESS_KEY_ID" :AccessKeyId
+                              "AWS_SECRET_ACCESS_KEY" :SecretAccessKey
+                              "AWS_SESSION_TOKEN" :SessionToken
+                              "AWS_SESSION_EXPIRATION" :Expiration
+                              nil)]
+                      (when k [k v])))))]
+    (into {} xf (-> raw-vars :out (str/split (re-pattern "\0"))))))
+
+
+(defn aws-vault-provider
+  ([]
+   (aws-vault-provider (or (u/getenv "AWS_PROFILE")
+                           (u/getProperty "aws.profile")
+                           "default")))
+  ([profile]
+   (creds/cached-credentials-with-auto-refresh
+    (reify creds/CredentialsProvider
+      (fetch [_]
+        (let [creds (aws-vault-exec! profile)]
+          (creds/valid-credentials
+           {:aws/access-key-id (:AccessKeyId creds)
+            :aws/secret-access-key (:SecretAccessKey creds)
+            :aws/session-token (:SessionToken creds)
+            ::creds/ttl (creds/calculate-ttl creds)}
+           (format "aws-vault with profile %s" profile))))))))
 
 
 (defn- parse-cmd
@@ -81,7 +104,7 @@
                     cmd)
               cmd)
         _ (log/debugf "command: %s" cmd)
-        {:keys [exit out err]} (apply shell/sh cmd)]
+        {:keys [exit out err]} (apply sh/sh cmd)]
     (if (zero? exit)
       out
       (throw (ex-info (str "Non-zero exit: " (pr-str err)) {})))))
@@ -99,18 +122,18 @@
 
 ;; TODO: Maybe this should look for `credential_process` in both the CLI config file *and* its creds
 ;;       file (first checking one and then, if not found, falling back to the other).
-(defn provider
+(defn credential-process-provider
   "Like profile-credentials-provider but with support for credential_process
    See https://github.com/cognitect-labs/aws-api/issues/73"
   ([]
-   (provider (or (u/getenv "AWS_PROFILE")
-                 (u/getProperty "aws.profile")
-                 "default")))
-
+   (credential-process-provider (or (u/getenv "AWS_PROFILE")
+                                    (u/getProperty "aws.profile")
+                                    "default")))
   ([profile-name]
-   (provider profile-name (or (io/file (u/getenv "AWS_CONFIG_FILE"))
-                              (io/file (u/getProperty "user.home") ".aws" "config"))))
-
+   (credential-process-provider profile-name (or (io/file (u/getenv "AWS_CONFIG_FILE"))
+                                                 (io/file (u/getProperty "user.home")
+                                                          ".aws"
+                                                          "config"))))
   ([profile-name ^java.io.File config-file]
    (creds/cached-credentials-with-auto-refresh
     (reify creds/CredentialsProvider
@@ -126,7 +149,7 @@
                           (throw (ex-info "Profile key `credential_process` not found"
                                           {:profile-name profile-name :profile profile})))
                   creds (as-> (get-credentials-via-cmd cmd) creds
-                              (assoc creds ::creds/ttl (creds/calculate-ttl creds)))]
+                          (assoc creds ::creds/ttl (creds/calculate-ttl creds)))]
               (log/debugf "Creds: %s" creds)
               (creds/valid-credentials creds "credential_process"))
             (catch Throwable t

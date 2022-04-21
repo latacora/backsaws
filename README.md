@@ -83,6 +83,32 @@ This has been tested with [aws-sso-util] — specifically with its command
 [credential-process][aws-sso-util-credential-process].
 
 
+## Chaining `CredentialsProvider`s
+
+If you’d like your program to look for credentials in various places just like `aws-api` does by
+default, only you’d like it to *also* look at `aws-vault` and/or `credential_process` using one or
+both of the `CredentialProvider`s above, you can accomplish this via `chain-credentials-provider`:
+
+```clojure
+(require '[cognitect.aws.client.api :as aws]
+         '[cognitect.aws.credentials :as creds]
+         '[com.latacora.backsaws.credentials-providers :as cp])
+
+(def provider
+  (let [http-client (aws/default-http-client)]
+    (creds/chain-credentials-provider
+     [(creds/environment-credentials-provider)
+      (creds/system-property-credentials-provider)
+      (creds/profile-credentials-provider)
+      (container-credentials-provider http-client)
+      (instance-profile-credentials-provider http-client)
+      (cp/aws-vault-provider)
+      (cp/credential-process-provider)])))
+```
+
+You can rearrange those entries into whatever order you’d like, remove any of those, etc.
+
+
 ## Development
 
 Run the tests:

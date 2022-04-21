@@ -31,6 +31,7 @@ Figures out how to paginate an API and do it automagically.
    :request {:ParentId "ou-xyzzy"}})
 ```
 
+
 ## aws-vault `CredentialsProvider`
 
 A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault].
@@ -38,10 +39,20 @@ A [`CredentialsProvider`][CredentialsProvider] backed by [`aws-vault`][awsvault]
 ```clojure
 (require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(def provider (cp/aws-vault-provider "some-profile-name-aws-vault-groks"))
-(aws/invoke (aws/client {:api :s3 :credentials-provider provider})
-            {:op :ListBuckets})
+(def provider
+  ;; Either specify a profile name or let the provider get it from either the environment
+  ;; variable `AWS_PROFILE` the Java system property `aws.profile` *or* fall back to `default`
+  (if-let [profile-name (config/get :aws-profile-name)]
+    (cp/aws-vault-provider profile-name)
+    (cp/aws-vault-provider))
+
+;; Include the provider in the config when creating a client
+(def client (aws/client {:api :s3 :credentials-provider provider}))
+
+;; Use the client normally
+(aws/invoke client {:op :ListBuckets})
 ```
+
 
 ## `credential_process` `CredentialsProvider`
 
@@ -54,9 +65,18 @@ This requires the active [AWS CLI profile] (which could be `default`) to have th
 ```clojure
 (require '[com.latacora.backsaws.credentials-providers :as cp])
 
-(def provider (cp/credential-process-provider))
-(aws/invoke (sso/client {:api :s3 :credentials-provider provider})
-            {:op :ListBuckets})
+(def provider
+  ;; Either specify a profile name or let the provider get it from either the environment
+  ;; variable `AWS_PROFILE` the Java system property `aws.profile` *or* fall back to `default`
+  (if-let [profile-name (config/get :aws-profile-name)]
+    (cp/credential-process-provider profile-name)
+    (cp/credential-process-provider))
+
+;; Include the provider in the config when creating a client
+(def client (aws/client {:api :s3 :credentials-provider provider}))
+
+;; Use the client normally
+(aws/invoke client {:op :ListBuckets})
 ```
 
 This has been tested with [aws-sso-util] — specifically with its command

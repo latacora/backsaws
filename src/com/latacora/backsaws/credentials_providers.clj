@@ -30,17 +30,21 @@
 
 
 (defn aws-vault-provider
-  [profile]
-  (creds/cached-credentials-with-auto-refresh
-   (reify creds/CredentialsProvider
-     (fetch [_]
-       (let [creds (aws-vault-exec! profile)]
-         (creds/valid-credentials
-          {:aws/access-key-id (:AccessKeyId creds)
-           :aws/secret-access-key (:SecretAccessKey creds)
-           :aws/session-token (:SessionToken creds)
-           ::creds/ttl (creds/calculate-ttl creds)}
-          (format "aws-vault with profile %s" profile)))))))
+  ([]
+   (aws-vault-provider (or (u/getenv "AWS_PROFILE")
+                           (u/getProperty "aws.profile")
+                           "default")))
+  ([profile]
+   (creds/cached-credentials-with-auto-refresh
+    (reify creds/CredentialsProvider
+      (fetch [_]
+        (let [creds (aws-vault-exec! profile)]
+          (creds/valid-credentials
+           {:aws/access-key-id (:AccessKeyId creds)
+            :aws/secret-access-key (:SecretAccessKey creds)
+            :aws/session-token (:SessionToken creds)
+            ::creds/ttl (creds/calculate-ttl creds)}
+           (format "aws-vault with profile %s" profile))))))))
 
 
 (defn- parse-cmd
@@ -125,13 +129,11 @@
    (credential-process-provider (or (u/getenv "AWS_PROFILE")
                                     (u/getProperty "aws.profile")
                                     "default")))
-
   ([profile-name]
    (credential-process-provider profile-name (or (io/file (u/getenv "AWS_CONFIG_FILE"))
                                                  (io/file (u/getProperty "user.home")
                                                           ".aws"
                                                           "config"))))
-
   ([profile-name ^java.io.File config-file]
    (creds/cached-credentials-with-auto-refresh
     (reify creds/CredentialsProvider

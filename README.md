@@ -113,7 +113,7 @@ You can rearrange those entries into whatever order you’d like, remove any of 
 
 Run the tests:
 
-    clojure -M:test
+    bin/test
 
 Run tests, linters etc for CI:
 

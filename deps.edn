@@ -5,8 +5,10 @@
         org.clojure/tools.logging {:mvn/version "1.2.4"}}
  :aliases
  {:test
-  {:main-opts ["-m" "kaocha.runner"]
-   :extra-paths ["test"]
+  ;; This profile doesn’t use :main-opts to start the test runner because that prevents some IDEs
+  ;; (such as Calva) from starting a REPL using this profile. So instead, we run the tests with the
+  ;; script bin/test (as recommended by the Kaocha docs).
+  {:extra-paths ["test"]
    :jvm-opts ["-XX:-OmitStackTraceInFastThrow"
               "-Dclojure.tools.logging.factory=clojure.tools.logging.impl/jul-factory"]
    :extra-deps {lambdaisland/kaocha {:mvn/version "1.66.1034" :exclusions [org.slf4j/slf4j-api]}

@@ -2,20 +2,20 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         com.cognitect.aws/api {:mvn/version "0.8.539"}
         meander/epsilon {:mvn/version "0.0.650"}
-        org.clojure/tools.logging {:mvn/version "1.2.1"}}
+        org.clojure/tools.logging {:mvn/version "1.2.4"}}
  :aliases
  {:test
-  {:main-opts ["-m" "kaocha.runner"]
-   :extra-paths ["test"]
+  ;; This profile doesn’t use :main-opts to start the test runner because that prevents some IDEs
+  ;; (such as Calva) from starting a REPL using this profile. So instead, we run the tests with the
+  ;; script bin/test (as recommended by the Kaocha docs).
+  {:extra-paths ["test"]
    :jvm-opts ["-XX:-OmitStackTraceInFastThrow"
               "-Dclojure.tools.logging.factory=clojure.tools.logging.impl/jul-factory"]
-   :extra-deps {lambdaisland/kaocha {:mvn/version "1.65.1029"
-                                     :exclusions [org.slf4j/slf4j-api]}
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.66.1034" :exclusions [org.slf4j/slf4j-api]}
                 org.clojure/test.check {:mvn/version "1.1.1"}
                 com.gfredericks/test.chuck {:mvn/version "0.2.13"}
-
-                com.cognitect.aws/organizations {:mvn/version "RELEASE"}
-                com.cognitect.aws/s3 {:mvn/version "RELEASE"}}}
-  :build {:deps {io.github.seancorfield/build-clj
-                 {:git/tag "v0.8.0" :git/sha "9bd8b8a"}}
+                com.cognitect.aws/endpoints  {:mvn/version "1.1.12.206"}
+                com.cognitect.aws/organizations {:mvn/version "822.2.1109.0"}
+                com.cognitect.aws/s3 {:mvn/version "822.2.1109.0"}}}
+  :build {:deps {io.github.seancorfield/build-clj {:git/tag "v0.8.0" :git/sha "9bd8b8a"}}
           :ns-default build}}}

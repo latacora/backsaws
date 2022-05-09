@@ -154,3 +154,16 @@
               (creds/valid-credentials creds "credential_process"))
             (catch Throwable t
               (log/error t "Error fetching credentials from credential_process")))))))))
+
+(comment
+  (require '[cognitect.aws.client.api :as aws]
+           '[cognitect.aws.region :as region])
+
+  (let [profile "sso.core-shared-dev.read-dev"
+        rp (region/profile-region-provider profile)
+        cp (credential-process-provider profile)
+        client (aws/client {:api :s3
+                            :region-provider rp
+                            :credentials-provider cp})]
+    (aws/invoke client {:op :ListBuckets}))
+)

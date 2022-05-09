@@ -13,12 +13,12 @@ jobs:
           java-version: '17'
           java-package: jre
       - name: Install Clojure tools
-        uses: DeLaGuardo/setup-clojure@5.0
+        uses: DeLaGuardo/setup-clojure@5.1
         with:
-          cli: 1.11.1.1105
+          cli: 1.11.1.1113
           github-token: ${{ secrets.GITHUB_TOKEN }}  # To avoid rate limit errors
       - name: Cache Dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             ~/.gitlibs
@@ -26,4 +26,4 @@ jobs:
           key: ${{ runner.os }}-deps-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-deps-
-      - run: clojure -M:test
+      - run: bin/test

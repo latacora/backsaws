@@ -84,6 +84,13 @@
       two-sections)))
 
 (t/deftest get-kvs-test
+  (t/is (= [[nil "x" "1"]]
+           (i/get-kvs one-kv-outside-section)))
+
+  (t/is (= []
+           (i/get-kvs empty-section)
+           (i/get-kvs empty-section-with-newline)))
+
   (t/is (= [["xyzzy" "x" "1"]]
            (i/get-kvs one-section-with-one-kv)))
 

@@ -3,7 +3,7 @@
    [com.latacora.backsaws.ini :as i]
    [clojure.test :as t]))
 
-(def no-section
+(def one-kv-outside-section
   (i/ini-parser "x=1"))
 
 (def empty-section
@@ -20,6 +20,68 @@
 
 (def two-sections
   (i/ini-parser "[xyzzy]\nx = 1\n[iddqd]\ny=2"))
+
+(t/deftest parse-test
+  (t/is
+   (= [:ini
+       [:body
+        [:kv [:key "x"] [:wsp ""] "=" [:wsp ""] [:val "1"]] [:wsp ""]]]
+      one-kv-outside-section))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "x"] [:wsp ""] "]" [:wsp ""]]]]
+      empty-section))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "x"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body]]]
+      empty-section-with-newline))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "xyzzy"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body [:kv [:key "x"] [:wsp " "] "=" [:wsp " "] [:val "1"]] [:wsp ""]]]]
+      one-section-with-one-kv))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "xyzzy"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body
+         [:kv [:key "x"] [:wsp " "] "=" [:wsp " "] [:val "1"]]
+         [:wsp ""]
+         [:eol "\n"]
+         [:kv [:key "y"] [:wsp " "] "=" [:wsp " "] [:val "2"]]
+         [:wsp ""]]]]
+      one-section-with-two-kvs))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "xyzzy"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body
+         [:kv [:key "x"] [:wsp " "] "=" [:wsp " "] [:val "1"]]
+         [:wsp ""]
+         [:eol "\n"]]]
+       [:section
+        [:header "[" [:wsp ""] [:name "iddqd"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body [:kv [:key "y"] [:wsp ""] "=" [:wsp ""] [:val "2"]] [:wsp ""]]]]
+      two-sections)))
 
 (t/deftest get-kvs-test
   (t/is (= [["xyzzy" "x" "1"]]

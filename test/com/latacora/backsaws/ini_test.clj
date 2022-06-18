@@ -21,6 +21,9 @@
 (def two-sections
   (i/ini-parser "[xyzzy]\nx = 1\n[iddqd]\ny=2"))
 
+(def sectioned-and-unsectioned-kvs
+  (i/ini-parser "z = 3\n[xyzzy]\nx = 1\n[iddqd]\ny=2"))
+
 (t/deftest parse-test
   (t/is
    (= [:ini
@@ -81,7 +84,26 @@
         [:header "[" [:wsp ""] [:name "iddqd"] [:wsp ""] "]" [:wsp ""]]
         [:eol "\n"]
         [:body [:kv [:key "y"] [:wsp ""] "=" [:wsp ""] [:val "2"]] [:wsp ""]]]]
-      two-sections)))
+      two-sections))
+
+  (t/is
+   (= [:ini
+       [:body
+        [:kv [:key "z"] [:wsp " "] "=" [:wsp " "] [:val "3"]]
+        [:wsp ""]
+        [:eol "\n"]]
+       [:section
+        [:header "[" [:wsp ""] [:name "xyzzy"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body
+         [:kv [:key "x"] [:wsp " "] "=" [:wsp " "] [:val "1"]]
+         [:wsp ""]
+         [:eol "\n"]]]
+       [:section
+        [:header "[" [:wsp ""] [:name "iddqd"] [:wsp ""] "]" [:wsp ""]]
+        [:eol "\n"]
+        [:body [:kv [:key "y"] [:wsp ""] "=" [:wsp ""] [:val "2"]] [:wsp ""]]]]
+      sectioned-and-unsectioned-kvs)))
 
 (t/deftest get-kvs-test
   (t/is (= [[nil "x" "1"]]

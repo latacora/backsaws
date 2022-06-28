@@ -24,6 +24,12 @@
 (def sectioned-and-unsectioned-kvs
   (i/ini-parser "z = 3\n[xyzzy]\nx = 1\n[iddqd]\ny=2"))
 
+(def malformed-empty-key-no-header
+  (i/ini-parser "="))
+
+(def malformed-empty-key-with-header
+  (i/ini-parser "[x]\n="))
+
 (t/deftest parse-test
   (t/is
    (= [:ini
@@ -103,7 +109,21 @@
         [:header "[" [:wsp ""] [:name "iddqd"] [:wsp ""] "]" [:wsp ""]]
         [:eol "\n"]
         [:body [:kv [:key "y"] [:wsp ""] "=" [:wsp ""] [:val "2"]] [:wsp ""]]]]
-      sectioned-and-unsectioned-kvs)))
+      sectioned-and-unsectioned-kvs))
+
+  (t/is
+   (= [:ini
+       [:body
+        [:kv [:key ""] [:wsp ""] "=" [:wsp ""] [:val ""]] [:wsp ""]]]
+      malformed-empty-key-no-header))
+
+  (t/is
+   (= [:ini
+       [:body]
+       [:section
+        [:header "[" [:wsp ""] [:name "x"] [:wsp ""] "]" [:wsp ""]] [:eol "\n"]
+        [:body [:kv [:key ""] [:wsp ""] "=" [:wsp ""] [:val ""]] [:wsp ""]]]]
+      malformed-empty-key-with-header)))
 
 (t/deftest get-kvs-test
   (t/is (= [[nil "x" "1"]]

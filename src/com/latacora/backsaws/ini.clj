@@ -5,7 +5,16 @@
    [babashka.fs :as fs]
    [meander.epsilon :as m]))
 
-(def ini-parser (-> "ini.ebnf" io/resource insta/parser))
+(def ini-parser
+  "An instaparse parser for ini files.
+
+  The grammar takes the strategy of maintaining all tokens in the parse tree and
+  as such does not remove things like whitespace, or parts of syntax like [, ]
+  and = that are implicit in the parse tree. This is intentional. By capturing
+  all strings, the resulting parse tree can be reserialized while maximally
+  maintaining formatting: just concat all the strings."
+  (-> "ini.ebnf" io/resource insta/parser))
+
 (defn parse-path! [path] (-> path fs/expand-home fs/file slurp ini-parser))
 (def parse-aws-config! (partial parse-path! "~/.aws/config"))
 

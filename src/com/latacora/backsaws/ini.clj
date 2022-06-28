@@ -10,17 +10,17 @@
 (def parse-aws-config! (partial parse-path! "~/.aws/config"))
 
 (defn ^:private get-sectionless-kvs
-  [ini-parse]
+  [parsed-ini]
   (m/search
-   ini-parse
+   parsed-ini
    [:ini
     [:body & (m/scan [:kv [:key ?k] [:wsp _] "=" [:wsp _] [:val ?v]])]]
    [nil ?k ?v]))
 
 (defn ^:private get-sectioned-kvs
-  [ini-parse]
+  [parsed-ini]
   (m/search
-   ini-parse
+   parsed-ini
    [:ini
     [:body . _ ...]
     &
@@ -33,8 +33,8 @@
    [?h ?k ?v]))
 
 (defn get-kvs
-  [ini-parse]
+  [parsed-ini]
   ;; These two meander queries can probably be refactored or even combined but I
   ;; don't know how. I've asked in #meander on the Clojurians Slack but have not
   ;; yet received an answer.
-  (mapcat #(% ini-parse) [get-sectionless-kvs get-sectioned-kvs]))
+  (mapcat #(% parsed-ini) [get-sectionless-kvs get-sectioned-kvs]))

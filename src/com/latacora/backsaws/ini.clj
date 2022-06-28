@@ -26,7 +26,7 @@
   ;; IFn.
   parser)
 
-(defn parse-path! [path] (-> path fs/expand-home fs/file slurp ini-parser))
+(defn parse-path! [path] (-> path fs/expand-home fs/file slurp parser))
 (def parse-aws-config! (partial parse-path! "~/.aws/config"))
 
 (defn ^:private get-sectionless-kvs

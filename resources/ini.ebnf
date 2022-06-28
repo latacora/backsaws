@@ -14,8 +14,6 @@ comment = #"#.*".
 wsp = "(\t| )*".
 eol = "(\r|\n|\r\n)".
 
-blank-line = wsp comment? eol.
-
 comment = #"#.*".
 wsp = #"( |\t)*".
 eol = #"\R".

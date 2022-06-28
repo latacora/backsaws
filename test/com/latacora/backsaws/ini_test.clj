@@ -3,32 +3,35 @@
    [com.latacora.backsaws.ini :as i]
    [clojure.test :as t]))
 
+(t/deftest parser-alias-tests
+  (t/is (identical? i/parser i/parse)))
+
 (def one-kv-outside-section
-  (i/ini-parser "x=1"))
+  (i/parse "x=1"))
 
 (def empty-section
-  (i/ini-parser "[x]"))
+  (i/parse "[x]"))
 
 (def empty-section-with-newline
-  (i/ini-parser "[x]\n"))
+  (i/parse "[x]\n"))
 
 (def one-section-with-one-kv
-  (i/ini-parser "[xyzzy]\nx = 1"))
+  (i/parse "[xyzzy]\nx = 1"))
 
 (def one-section-with-two-kvs
-  (i/ini-parser "[xyzzy]\nx = 1\ny = 2"))
+  (i/parse "[xyzzy]\nx = 1\ny = 2"))
 
 (def two-sections
-  (i/ini-parser "[xyzzy]\nx = 1\n[iddqd]\ny=2"))
+  (i/parse "[xyzzy]\nx = 1\n[iddqd]\ny=2"))
 
 (def sectioned-and-unsectioned-kvs
-  (i/ini-parser "z = 3\n[xyzzy]\nx = 1\n[iddqd]\ny=2"))
+  (i/parse "z = 3\n[xyzzy]\nx = 1\n[iddqd]\ny=2"))
 
 (def malformed-empty-key-no-header
-  (i/ini-parser "="))
+  (i/parse "="))
 
 (def malformed-empty-key-with-header
-  (i/ini-parser "[x]\n="))
+  (i/parse "[x]\n="))
 
 (t/deftest parse-test
   (t/is

@@ -5,7 +5,7 @@
    [babashka.fs :as fs]
    [meander.epsilon :as m]))
 
-(def ini-parser
+(def parser
   "An instaparse parser for ini files.
 
   The grammar takes the strategy of maintaining all tokens in the parse tree and
@@ -14,6 +14,17 @@
   all strings, the resulting parse tree can be reserialized while maximally
   maintaining formatting: just concat all the strings."
   (-> "ini.ebnf" io/resource insta/parser))
+
+(def parse
+  "Parses a string to an ini parse tree.
+
+  See [[parser]]."
+  ;; This is intended as a readability aid: some people prefer to see the verb
+  ;; form for fns, as opposed to the noun "parser". At time of writing this is
+  ;; literally just the instaparse parser, but in the future this might call
+  ;; that parser with specific args; this var's contract is strict that it's an
+  ;; IFn.
+  parser)
 
 (defn parse-path! [path] (-> path fs/expand-home fs/file slurp ini-parser))
 (def parse-aws-config! (partial parse-path! "~/.aws/config"))

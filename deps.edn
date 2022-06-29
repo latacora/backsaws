@@ -2,7 +2,9 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         com.cognitect.aws/api {:mvn/version "0.8.539"}
         meander/epsilon {:mvn/version "0.0.650"}
-        org.clojure/tools.logging {:mvn/version "1.2.4"}}
+        org.clojure/tools.logging {:mvn/version "1.2.4"}
+        babashka/fs {:mvn/version "0.1.4"}
+        instaparse/instaparse {:mvn/version "1.4.12"}}
  :aliases
  {:test
   ;; This profile doesn’t use :main-opts to start the test runner because that prevents some IDEs

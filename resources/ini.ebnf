@@ -1,0 +1,15 @@
+ini = body section*.
+
+section = header (eol body)?.
+header = "[" wsp name wsp "]" wsp comment?.
+name = #"[\w ]+(?<! )"
+
+body = (kv? wsp comment? eol)* (kv wsp comment?)?
+
+kv = key wsp "=" wsp val.
+key = #"[\w ]*(?<! )"
+val = #"[\w ]*(?<! )"
+
+comment = #"#.*".
+wsp = #"( |\t)*".
+eol = #"\R".

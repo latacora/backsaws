@@ -26,14 +26,21 @@
     {:results (#'p/mapcat-ks* [:DeleteMarkers :Versions])
      :truncated? :IsTruncated
      :next-request (#'p/next-request-from-mapping
-                   {:NextVersionIdMarker :VersionIdMarker
-                    :NextKeyMarker :KeyMarker})}]
+                    {:NextVersionIdMarker :VersionIdMarker
+                     :NextKeyMarker :KeyMarker})}]
 
    [:s3
     :ListBuckets
     {:results :Buckets
      :truncated? (#'p/constantly* false)
-     :next-request ::p/not-paginated}]])
+     :next-request ::p/not-paginated}]
+
+   [:codecommit
+    :ListRepositories
+    {:results :repositories
+     :truncated? (#'p/some-fn* #{:nextToken})
+     :next-request (#'p/next-request-from-mapping
+                    {:nextToken :nextToken})}]])
 
 (def ^:private pagination-ns
   (comp #{(namespace ::p/x)} namespace))

@@ -5,7 +5,7 @@
    [clojure.set :as set]))
 
 (def ^:private next-markers
-  #{:NextToken :NextMarker :nextToken})
+  #{:NextToken :NextMarker :nextToken :NextContinuationToken})
 
 (def ^:private is-truncated-keys
   #{:IsTruncated})

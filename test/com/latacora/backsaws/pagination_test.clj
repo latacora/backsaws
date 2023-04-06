@@ -30,6 +30,13 @@
                      :NextKeyMarker :KeyMarker})}]
 
    [:s3
+    :ListObjectsV2
+    {:results :Contents
+     :truncated? :IsTruncated
+     :next-request (#'p/next-request-from-mapping
+                    {:NextContinuationToken :ContinuationToken})}]
+
+   [:s3
     :ListBuckets
     {:results :Buckets
      :truncated? (#'p/constantly* false)
@@ -65,17 +72,17 @@
 (t/deftest manual-paginated-invoke-tests
   (let [orgs (aws/client {:api :organizations})]
     (with-redefs
-      [aws/invoke
-       (fn [client {:keys [op request]}]
-         (t/is (identical? orgs client))
-         (t/is (= op :ListAccountsForParent))
-         (condp = request
-           {:ParentId "xyzzy"}
-           {:Accounts [{:AccountId 1}]
-            :NextToken "iddqd"}
+     [aws/invoke
+      (fn [client {:keys [op request]}]
+        (t/is (identical? orgs client))
+        (t/is (= op :ListAccountsForParent))
+        (condp = request
+          {:ParentId "xyzzy"}
+          {:Accounts [{:AccountId 1}]
+           :NextToken "iddqd"}
 
-           {:ParentId "xyzzy" :NextToken "iddqd"}
-           {:Accounts [{:AccountId 2}]}))]
+          {:ParentId "xyzzy" :NextToken "iddqd"}
+          {:Accounts [{:AccountId 2}]}))]
       (t/is
        (=
         [{:AccountId 1} {:AccountId 2}]
@@ -86,30 +93,30 @@
 
   (let [s3 (aws/client {:api :s3})]
     (with-redefs
-      [aws/invoke
-       (fn [client {:keys [op request]}]
-         (t/is (identical? s3 client))
-         (t/is (= op :ListObjectVersions))
-         (case [(:VersionIdMarker request) (:KeyMarker request)]
-           [nil nil]
-           {:Versions [{:Key "a" :VersionId 1}
-                       {:Key "a" :VersionId 2}]
-            :DeleteMarkers [{:Key "a" :VersionId 3}]
-            :NextKeyMarker "b"
-            :IsTruncated true}
+     [aws/invoke
+      (fn [client {:keys [op request]}]
+        (t/is (identical? s3 client))
+        (t/is (= op :ListObjectVersions))
+        (case [(:VersionIdMarker request) (:KeyMarker request)]
+          [nil nil]
+          {:Versions [{:Key "a" :VersionId 1}
+                      {:Key "a" :VersionId 2}]
+           :DeleteMarkers [{:Key "a" :VersionId 3}]
+           :NextKeyMarker "b"
+           :IsTruncated true}
 
-           [nil "b"]
-           {:Versions [{:Key "b" :VersionId 1}
-                       {:Key "b" :VersionId 2}]
-            :DeleteMarkers []
-            :NextKeyMarker "b"
-            :NextVersionIdMarker 3
-            :IsTruncated true}
+          [nil "b"]
+          {:Versions [{:Key "b" :VersionId 1}
+                      {:Key "b" :VersionId 2}]
+           :DeleteMarkers []
+           :NextKeyMarker "b"
+           :NextVersionIdMarker 3
+           :IsTruncated true}
 
-           [3 "b"]
-           {:Versions [{:Key "b" :VersionId 3}]
-            :DeleteMarkers []
-            :IsTruncated false}))]
+          [3 "b"]
+          {:Versions [{:Key "b" :VersionId 3}]
+           :DeleteMarkers []
+           :IsTruncated false}))]
       (p/paginated-invoke s3 {:op :ListObjectVersions}))))
 
 (t/deftest next-request-tests

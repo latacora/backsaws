@@ -8,7 +8,7 @@ body = (kv? wsp comment? eol)* (kv wsp comment?)?
 
 kv = key wsp "=" wsp val.
 key = #"[\w ]*(?<! )"
-val = #"[\w ]*(?<! )"
+val = #".*(?<! )"
 
 comment = #"#.*".
 wsp = #"( |\t)*".

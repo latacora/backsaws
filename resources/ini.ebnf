@@ -2,7 +2,7 @@ ini = body section*.
 
 section = header (eol body)?.
 header = "[" wsp name wsp "]" wsp comment?.
-name = #"[\w ]+(?<! )"
+name = #"[\w -.]+(?<! )"
 
 body = (kv? wsp comment? eol)* (kv wsp comment?)?
 

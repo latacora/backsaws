@@ -33,6 +33,15 @@
 (def malformed-empty-key-with-header
   (i/parse "[x]\n="))
 
+(def header-more-chars
+  (i/parse "[profile myprofile.sso.admin-prod]"))
+
+(def kv-cred-proc
+  (i/parse "credential_process = /bin/bash -c \"echo mycredentials\""))
+
+(def kv-role-arn
+  (i/parse "role_arn=arn:aws:iam::123456789012:role/resource-tagger"))
+
 (t/deftest parse-test
   (t/is
    (= [:ini
@@ -126,7 +135,32 @@
        [:section
         [:header "[" [:wsp ""] [:name "x"] [:wsp ""] "]" [:wsp ""]] [:eol "\n"]
         [:body [:kv [:key ""] [:wsp ""] "=" [:wsp ""] [:val ""]] [:wsp ""]]]]
-      malformed-empty-key-with-header)))
+      malformed-empty-key-with-header))
+
+  (t/is
+    (=
+       [:ini
+        [:body]
+        [:section
+         [:header "[" [:wsp ""] [:name "profile myprofile.sso.admin-prod"] [:wsp ""] "]" [:wsp ""]]]]
+       header-more-chars))
+
+  (t/is
+    (= [:ini
+        [:body
+         [:kv
+          [:key "credential_process"] [:wsp " "] "=" [:wsp " "]
+          [:val "/bin/bash -c \"echo mycredentials\""]] [:wsp ""]]]
+     kv-cred-proc))
+
+  (t/is
+    (=
+     [:ini
+      [:body
+       [:kv
+        [:key "role_arn"] [:wsp ""] "=" [:wsp ""]
+        [:val "arn:aws:iam::123456789012:role/resource-tagger"]] [:wsp ""]]]
+     kv-role-arn)))
 
 (t/deftest get-kvs-test
   (t/is (= [[nil "x" "1"]]

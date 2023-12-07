@@ -100,8 +100,8 @@ both of the `CredentialProvider`s above, you can accomplish this via `chain-cred
      [(creds/environment-credentials-provider)
       (creds/system-property-credentials-provider)
       (creds/profile-credentials-provider)
-      (container-credentials-provider http-client)
-      (instance-profile-credentials-provider http-client)
+      (creds/container-credentials-provider http-client)
+      (creds/instance-profile-credentials-provider http-client)
       (cp/aws-vault-provider)
       (cp/credential-process-provider)])))
 ```

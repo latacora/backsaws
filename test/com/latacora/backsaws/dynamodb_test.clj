@@ -2,7 +2,6 @@
   (:require [com.latacora.backsaws.dynamodb :as ddb]
             [clojure.test :as t]))
 
-(ddb/encode (.getBytes "foo"))
 
 (def test-val
   {:string "asd"

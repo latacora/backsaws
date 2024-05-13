@@ -25,8 +25,8 @@
        :bool-false {:BOOL false}}})
 
 (t/deftest test-decode
-  (ddb/decode {:NS ["1" "2" "3"]})
-  (ddb/decode {:S "foo"})
+  (t/is (= #{1 2 3} (ddb/decode {:NS ["1" "2" "3"]})))
+  (t/is (= "foo" (ddb/decode {:S "foo"})))
   (t/is (= 3 (ddb/decode {:N "3"})))
   (t/is (= 3.33 (ddb/decode {:N "3.33"})))
   (t/is (= #{"foo" "bar"} (ddb/decode {:SS ["foo" "bar"]})))

@@ -5,7 +5,8 @@
    [clojure.set :as set]))
 
 (def ^:private next-markers
-  #{:NextToken :NextMarker :nextToken :NextContinuationToken})
+  "Special cases for next page markers. None that most cases are caught my regex."
+  #{:nextToken})
 
 (def ^:private is-truncated-keys
   #{:IsTruncated})
@@ -103,8 +104,8 @@
                  matches #(for [c resp-keys :when (re-matches % (name c))] c)
                  next-markers (or
                                (seq (set/intersection resp-keys next-markers))
-                               (seq (matches #"Next([A-Za-z]*)*?Marker"))
-                               (seq (matches #"([A-Za-z]*)*?Marker")))]
+                               (seq (matches #"Next([A-Za-z]*)*?(Marker|Token)"))
+                               (seq (matches #"([A-Za-z]*)*?(Marker|Token)")))]
              (if-not next-markers
                ::not-paginated
                (let [req-keys (-> request keys set)]

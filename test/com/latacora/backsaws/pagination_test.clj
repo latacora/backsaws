@@ -47,7 +47,17 @@
     {:results :repositories
      :truncated? (#'p/some-fn* #{:nextToken})
      :next-request (#'p/next-request-from-mapping
-                    {:nextToken :nextToken})}]])
+                    {:nextToken :nextToken})}]
+
+   [:ce
+    :GetCostAndUsage
+    {:results {:com.latacora.backsaws.pagination/mapcat-of
+               [:DimensionValueAttributes
+                :GroupDefinitions
+                :ResultsByTime]}
+     :truncated? (#'p/some-fn* #{:NextPageToken})
+     :next-request (#'p/next-request-from-mapping
+                    {:NextPageToken :NextPageToken})}]])
 
 (def ^:private pagination-ns
   (comp #{(namespace ::p/x)} namespace))

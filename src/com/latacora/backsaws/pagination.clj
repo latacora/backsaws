@@ -5,7 +5,7 @@
    [clojure.set :as set]))
 
 (def ^:private next-markers
-  "Special cases for next page markers. None that most cases are caught my regex."
+  "Special cases for next page markers. Most cases are caught by regex."
   #{:nextToken})
 
 (def ^:private is-truncated-keys

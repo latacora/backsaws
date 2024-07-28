@@ -171,10 +171,10 @@
   `:next-request` takes the last request (part of the op-map) and last response
   and returns the next request."
   ([client op-map]
-   (let [paging-opts (infer-paging-opts client (:op op-map))]
-     (paginated-invoke client op-map paging-opts)))
+   (paginated-invoke client op-map nil))
   ([client op-map paging-opts]
-   (let [{:keys [results truncated? next-request]} paging-opts
+   (let [inferred (->> op-map :op (infer-paging-opts client))
+         {:keys [results truncated? next-request]} (merge inferred paging-opts)
          response (aws/invoke client op-map)]
      (->
       (if (truncated? response)

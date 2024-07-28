@@ -67,8 +67,6 @@
                 (recur s1 s2 len (max len maxlen))
                 (recur s1 s2 0 maxlen))))))
 
-(declare remove-phantom-results)
-
 (defn ^:private infer-paging-opts*
   "Like infer-paging-opts, but not memoized."
   ([client op]
@@ -117,32 +115,7 @@
              (constantly* false)
              (or
               (->> is-truncated-keys (filter response) first)
-              (->> next-request meta ::marker-mapping keys some-fn*))))]])
-      remove-phantom-results))))
-
-(defn ^:private remove-phantom-results
-  "Automatically determining the pagination opts may produce additional
-  results (see [[paginated-invoke]]) that are not real results. This filters
-  those out. It does that by comparing results against next markers."
-  [{:keys [results next-request] :as paging-opts}]
-  (let [results-ks (-> results meta ::mapcat-of)
-        next-marker-ks (-> next-request meta ::marker-mapping keys)]
-    (if (or
-         (nil? results-ks)
-         (= (count results-ks) (count next-marker-ks)))
-      paging-opts
-      (->>
-       results-ks
-       (sort-by
-        (fn [results-key]
-          (->> next-marker-ks
-               (map (partial similarity results-key))
-               (reduce max)
-               (-))))
-       (take (count next-marker-ks))
-       sort
-       one-or-concat
-       (assoc paging-opts :results)))))
+              (->> next-request meta ::marker-mapping keys some-fn*))))]])))))
 
 (def infer-paging-opts
   "For a given client + op, infer paging opts for [[paginated-invoke]]."

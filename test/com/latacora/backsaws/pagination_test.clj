@@ -23,7 +23,7 @@
 
    [:s3
     :ListObjectVersions
-    {:results (#'p/mapcat-ks* [:DeleteMarkers :Versions])
+    {:results (#'p/mapcat-ks* [:CommonPrefixes :DeleteMarkers :Versions])
      :truncated? :IsTruncated
      :next-request (#'p/next-request-from-mapping
                     {:NextVersionIdMarker :VersionIdMarker
@@ -31,7 +31,7 @@
 
    [:s3
     :ListObjectsV2
-    {:results :Contents
+    {:results (#'p/mapcat-ks* [:CommonPrefixes :Contents])
      :truncated? :IsTruncated
      :next-request (#'p/next-request-from-mapping
                     {:NextContinuationToken :ContinuationToken})}]

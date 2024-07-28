@@ -4,10 +4,6 @@
    [meander.epsilon :as m]
    [clojure.set :as set]))
 
-(def ^:private next-markers
-  "Special cases for next page markers. Most cases are caught by regex."
-  #{:nextToken})
-
 (def ^:private is-truncated-keys
   #{:IsTruncated})
 
@@ -103,7 +99,7 @@
            (let [resp-keys (-> response keys set)
                  matches #(for [c resp-keys :when (re-matches % (name c))] c)
                  next-markers (or
-                               (seq (set/intersection resp-keys next-markers))
+                               (seq (set/intersection resp-keys #{:nextToken}))
                                (seq (matches #"Next([A-Za-z]*)*?(Marker|Token)"))
                                (seq (matches #"([A-Za-z]*)*?(Marker|Token)")))]
              (if-not next-markers

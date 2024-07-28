@@ -176,9 +176,11 @@
   ([client op-map paging-opts]
    (let [{:keys [results truncated? next-request]} paging-opts
          response (aws/invoke client op-map)]
-     (if (truncated? response)
-       (lazy-cat
-        (results response)
-        (let [op-map (update op-map :request next-request response)]
-          (paginated-invoke client op-map paging-opts)))
-       (results response)))))
+     (->
+      (if (truncated? response)
+        (lazy-cat
+         (results response)
+         (let [op-map (update op-map :request next-request response)]
+           (paginated-invoke client op-map paging-opts)))
+        (results response))
+      (with-meta {:paging-opts paging-opts})))))

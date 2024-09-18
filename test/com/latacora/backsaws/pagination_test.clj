@@ -23,7 +23,7 @@
 
    [:s3
     :ListObjectVersions
-    {:results (#'p/mapcat-ks* [:DeleteMarkers :Versions])
+    {:results (#'p/mapcat-ks* [:CommonPrefixes :DeleteMarkers :Versions])
      :truncated? :IsTruncated
      :next-request (#'p/next-request-from-mapping
                     {:NextVersionIdMarker :VersionIdMarker
@@ -31,7 +31,7 @@
 
    [:s3
     :ListObjectsV2
-    {:results :Contents
+    {:results (#'p/mapcat-ks* [:CommonPrefixes :Contents])
      :truncated? :IsTruncated
      :next-request (#'p/next-request-from-mapping
                     {:NextContinuationToken :ContinuationToken})}]
@@ -47,7 +47,17 @@
     {:results :repositories
      :truncated? (#'p/some-fn* #{:nextToken})
      :next-request (#'p/next-request-from-mapping
-                    {:nextToken :nextToken})}]])
+                    {:nextToken :nextToken})}]
+
+   [:ce
+    :GetCostAndUsage
+    {:results {:com.latacora.backsaws.pagination/mapcat-of
+               [:DimensionValueAttributes
+                :GroupDefinitions
+                :ResultsByTime]}
+     :truncated? (#'p/some-fn* #{:NextPageToken})
+     :next-request (#'p/next-request-from-mapping
+                    {:NextPageToken :NextPageToken})}]])
 
 (def ^:private pagination-ns
   (comp #{(namespace ::p/x)} namespace))

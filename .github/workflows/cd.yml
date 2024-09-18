@@ -6,19 +6,19 @@ jobs:
   test:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
           java-package: jre
       - name: Install Clojure tools
-        uses: DeLaGuardo/setup-clojure@5.1
+        uses: DeLaGuardo/setup-clojure@12.5
         with:
-          cli: 1.11.1.1113
+          cli: 1.11.3.1463
           github-token: ${{ secrets.GITHUB_TOKEN }}  # To avoid rate limit errors
       - name: Cache Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gitlibs

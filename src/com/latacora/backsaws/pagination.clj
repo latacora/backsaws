@@ -4,9 +4,6 @@
    [meander.epsilon :as m]
    [clojure.set :as set]))
 
-(def ^:private next-markers
-  #{:NextToken :NextMarker :nextToken :NextContinuationToken})
-
 (def ^:private is-truncated-keys
   #{:IsTruncated})
 
@@ -70,8 +67,6 @@
                 (recur s1 s2 len (max len maxlen))
                 (recur s1 s2 0 maxlen))))))
 
-(declare remove-phantom-results)
-
 (defn ^:private infer-paging-opts*
   "Like infer-paging-opts, but not memoized."
   ([client op]
@@ -102,9 +97,9 @@
            (let [resp-keys (-> response keys set)
                  matches #(for [c resp-keys :when (re-matches % (name c))] c)
                  next-markers (or
-                               (seq (set/intersection resp-keys next-markers))
-                               (seq (matches #"Next([A-Za-z]*)*?Marker"))
-                               (seq (matches #"([A-Za-z]*)*?Marker")))]
+                               (seq (set/intersection resp-keys #{:nextToken}))
+                               (seq (matches #"Next([A-Za-z]*)*?(Marker|Token)"))
+                               (seq (matches #"([A-Za-z]*)*?(Marker|Token)")))]
              (if-not next-markers
                ::not-paginated
                (let [req-keys (-> request keys set)]
@@ -120,32 +115,7 @@
              (constantly* false)
              (or
               (->> is-truncated-keys (filter response) first)
-              (->> next-request meta ::marker-mapping keys some-fn*))))]])
-      remove-phantom-results))))
-
-(defn ^:private remove-phantom-results
-  "Automatically determining the pagination opts may produce additional
-  results (see [[paginated-invoke]]) that are not real results. This filters
-  those out. It does that by comparing results against next markers."
-  [{:keys [results next-request] :as paging-opts}]
-  (let [results-ks (-> results meta ::mapcat-of)
-        next-marker-ks (-> next-request meta ::marker-mapping keys)]
-    (if (or
-         (nil? results-ks)
-         (= (count results-ks) (count next-marker-ks)))
-      paging-opts
-      (->>
-       results-ks
-       (sort-by
-        (fn [results-key]
-          (->> next-marker-ks
-               (map (partial similarity results-key))
-               (reduce max)
-               (-))))
-       (take (count next-marker-ks))
-       sort
-       one-or-concat
-       (assoc paging-opts :results)))))
+              (->> next-request meta ::marker-mapping keys some-fn*))))]])))))
 
 (def infer-paging-opts
   "For a given client + op, infer paging opts for [[paginated-invoke]]."
@@ -157,27 +127,40 @@
   You likely don't need to specify your own pagination behavior: if you don't,
   we'll try to infer some reasonable defaults. Pagination opts are as follows:
 
-  `:results` is a fn from a response to the actual objects, e.g. :Accounts
-  or (comp :Instances :Reservation). Note that because we're returning a lazy
-  seq of results, we can only collect one thing at a time. Some operations, e.g.
-  s3's ListObjectVersions, have two: DeletionMarkers and Versions. By default,
-  these get intermingled via concatenation.
+  `:results` is a fn from a response to the actual objects, e.g. `:Accounts` or
+  `(comp :Instances :Reservation)`. We return a lazy seq of these elements.
+  Most paginatied operations only contain one useful type of result (e.g
+  `ListRepositories` returns only repositories). Some operations have
+  more than one. For example, s3's ListObjectVersions has DeletionMarkers
+   Versions, and CommonPrefixes. By default, these get intermingled via
+   concatenation. It is the caller's job to disambiguate and filter if they don't
+   need all results. This function does not attempt to recreate an equivalent
+   single response object, because a) that would prevent streaming processing,
+   and b) for some services, that would be incorrect (some of the results may be
+   page-specific). Such page-specific results will still be useful for streaming
+   purposes.
 
   `:truncated?` is a fn that given a response, tells you if there's another one
   or not. For some services, this is :IsTruncated (hence the name), but it is
   often based on the existence of next marker keys in the previous response.
 
   `:next-request` takes the last request (part of the op-map) and last response
-  and returns the next request."
+  and returns the next request.
+
+   If you specify paging opts explicitly, those will be merged with inferred
+  opts. The actual paging-opts will be added to the returned object's metadata
+  under `:paging-opts` so you can inspect them."
   ([client op-map]
-   (let [paging-opts (infer-paging-opts client (:op op-map))]
-     (paginated-invoke client op-map paging-opts)))
+   (paginated-invoke client op-map nil))
   ([client op-map paging-opts]
-   (let [{:keys [results truncated? next-request]} paging-opts
+   (let [inferred (->> op-map :op (infer-paging-opts client))
+         {:keys [results truncated? next-request]} (merge inferred paging-opts)
          response (aws/invoke client op-map)]
-     (if (truncated? response)
-       (lazy-cat
-        (results response)
-        (let [op-map (update op-map :request next-request response)]
-          (paginated-invoke client op-map paging-opts)))
-       (results response)))))
+     (->
+      (if (truncated? response)
+        (lazy-cat
+         (results response)
+         (let [op-map (update op-map :request next-request response)]
+           (paginated-invoke client op-map paging-opts)))
+        (results response))
+      (with-meta {:paging-opts paging-opts})))))

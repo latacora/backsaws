@@ -79,9 +79,7 @@
       {:BS (mapv encode-bytes this)}
 
       :else
-      (throw
-       (ex-info
-        "Cannot encode set, is invalid."))))
+      (throw (ex-info "Cannot encode set, is invalid." {:set this}))))
 
   clojure.lang.IPersistentMap
   (encode [this]

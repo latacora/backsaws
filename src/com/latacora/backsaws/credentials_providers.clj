@@ -121,6 +121,23 @@
      :Expiration Expiration}))  ;; Expiration is used by creds/calculate-ttl
 
 
+(def ^:private secret-credential-keys
+  [:aws/secret-access-key :aws/session-token])
+
+
+(defn ^:private redact
+  "`creds` with its secret values replaced, and the rest of the map as it was.
+
+  The access key id names which credentials these are without being usable on its
+  own, and the TTL is what the line below is read for. A nil is left alone: a
+  profile that returns no session token signs differently from one that does."
+  [creds]
+  (reduce
+   (fn [creds k] (cond-> creds (some? (get creds k)) (assoc k ::redacted)))
+   creds
+   secret-credential-keys))
+
+
 ;; TODO: Maybe this should look for `credential_process` in both the CLI config file *and* its creds
 ;;       file (first checking one and then, if not found, falling back to the other).
 (defn credential-process-provider
@@ -148,10 +165,14 @@
                                                :profiles-found (keys config)})))
                   cmd (or (get profile "credential_process")
                           (throw (ex-info "Profile key `credential_process` not found"
-                                          {:profile-name profile-name :profile profile})))
+                                          ;; the keys, not the profile: a profile can carry static
+                                          ;; credentials, and ExceptionInfo renders its data into the
+                                          ;; text the handler below logs at error level
+                                          {:profile-name profile-name
+                                           :profile-keys (vec (keys profile))})))
                   creds (as-> (get-credentials-via-cmd cmd) creds
                           (assoc creds ::creds/ttl (creds/calculate-ttl creds)))]
-              (log/debugf "Creds: %s" creds)
+              (log/debugf "Creds: %s" (redact creds))
               (creds/valid-credentials creds "credential_process"))
             (catch Throwable t
               (log/error t "Error fetching credentials from credential_process")))))))))

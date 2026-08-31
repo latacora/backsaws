@@ -28,6 +28,13 @@ of [Keep a Changelog].
 
 ### Fixed
 
+- `credential-process-provider` no longer logs the credentials it fetched. The debug line now
+  carries the access key id, the expiration and the TTL, and says `::redacted` where the secret
+  access key and the session token were ([#14])
+- A profile with no `credential_process` key is reported by its key names rather than its contents.
+  Such a profile often holds static credentials instead, and `ExceptionInfo` renders its `ex-data`
+  into the text the error handler logs, so the secret access key reached the log at error level
+  ([#14])
 - CI runs again. Its job asked for `ubuntu-20.04`, which GitHub retired, and a job naming a retired
   runner sits queued until GitHub cancels it, so every run since September 2025 reported `cancelled`
   rather than failing — including the ones behind merged pull requests ([#15])
@@ -42,6 +49,7 @@ of [Keep a Changelog].
 
 
 [#1]: https://github.com/latacora/backsaws/pull/1
+[#14]: https://github.com/latacora/backsaws/pull/14
 [#15]: https://github.com/latacora/backsaws/pull/15
 [#16]: https://github.com/latacora/backsaws/pull/16
 [aws-vault]: https://github.com/99designs/aws-vault

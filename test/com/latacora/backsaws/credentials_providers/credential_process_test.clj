@@ -1,6 +1,7 @@
 (ns com.latacora.backsaws.credentials-providers.credential-process-test
   (:require [clojure.data.json :as json]
             [clojure.java.shell :as sh]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [clojure.tools.logging :as log]
             [cognitect.aws.credentials :as awscreds]
@@ -8,7 +9,7 @@
             [meander.epsilon :as m])
   (:import [java.io File]
            [java.time Instant]
-           [java.util.logging Level Logger]))
+           [java.util.logging Handler Level LogRecord Logger]))
 
 
 ;; If you’re debugging these tests change this to e.g. Level/FINER
@@ -93,3 +94,63 @@
           config-file (write-config-file profile)
           provider (cp/credential-process-provider profile config-file)]
       (is (nil? (awscreds/fetch provider))))))
+
+
+(def ^:private provider-logger "com.latacora.backsaws.credentials-providers")
+
+
+(defn ^:private captured-log
+  "What `f` logs to `provider-logger` at `level` or above, as a handler would render
+  it: the message, and the throwable, whose `toString` carries its `ex-data`."
+  [level f]
+  (let [logger (Logger/getLogger provider-logger)
+        records (atom [])
+        handler (proxy [Handler] []
+                  (publish [^LogRecord record]
+                    (swap! records conj (str (.getMessage record) " " (.getThrown record))))
+                  (flush [])
+                  (close []))
+        prior-level (.getLevel logger)]
+    (try
+      (.setLevel logger level)
+      (.addHandler logger handler)
+      (f)
+      (finally
+        (.removeHandler logger handler)
+        (.setLevel logger prior-level)))
+    (str/join "\n" @records)))
+
+
+(deftest debug-log-redacts-fetched-credentials-test
+  (let [profile (str (gensym))
+        config-file (write-config-file profile)
+        ctx (atom [{:type :profile :value profile}])
+        logged (with-redefs [sh/sh (partial fake-sh! ctx)]
+                 (captured-log
+                  Level/FINE
+                  #(awscreds/fetch (cp/credential-process-provider profile config-file))))]
+    (testing "which credentials were fetched"
+      (is (str/includes? logged (:AccessKeyId fake-result))))
+    (testing "and not the credentials"
+      (is (not (str/includes? logged (:SecretAccessKey fake-result))))
+      (is (not (str/includes? logged (:SessionToken fake-result)))))))
+
+
+(def ^:private static-secret "SECRET-DO-NOT-LOG")
+
+
+(deftest error-log-omits-profile-values-test
+  (let [profile (str (gensym))
+        config-file (doto (File/createTempFile "test" "awsconfig")
+                      (spit (format (str "[profile %s]\n"
+                                         "aws_access_key_id = ASIA\n"
+                                         "aws_secret_access_key = %s\n")
+                                    profile static-secret)))
+        logged (captured-log
+                Level/SEVERE
+                #(is (nil? (awscreds/fetch (cp/credential-process-provider profile config-file)))))]
+    (testing "a profile with no credential_process says what it did have"
+      (is (str/includes? logged "credential_process"))
+      (is (str/includes? logged "aws_secret_access_key")))
+    (testing "without the values, which for such a profile are credentials"
+      (is (not (str/includes? logged static-secret))))))

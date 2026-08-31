@@ -13,6 +13,9 @@ of [Keep a Changelog].
 - A [`CredentialsProvider`][CredentialsProvider] that supports [`aws-vault`][aws-vault]
 - A [`CredentialsProvider`][CredentialsProvider] that supports
   [`credential_process`][credential_process] ([#1])
+- `default-credentials-provider`: aws-api's default chain with `credential-process-provider` in
+  it, which is what a caller wanting IAM Identity Center credentials actually needs. tuchos and
+  gws-ingestion-monitor each carried a copy of this, docstring and Slack links included ([#16])
 
 ### Changed
 
@@ -40,6 +43,7 @@ of [Keep a Changelog].
 
 [#1]: https://github.com/latacora/backsaws/pull/1
 [#15]: https://github.com/latacora/backsaws/pull/15
+[#16]: https://github.com/latacora/backsaws/pull/16
 [aws-vault]: https://github.com/99designs/aws-vault
 [credential_process]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html
 [CredentialsProvider]: https://github.com/cognitect-labs/aws-api#credentials

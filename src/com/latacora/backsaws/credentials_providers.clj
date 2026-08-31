@@ -4,6 +4,7 @@
             [clojure.java.shell :as sh]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [cognitect.aws.client.api :as aws]
             [cognitect.aws.config :as config]
             [cognitect.aws.credentials :as creds]
             [cognitect.aws.util :as u]))
@@ -155,13 +156,41 @@
             (catch Throwable t
               (log/error t "Error fetching credentials from credential_process")))))))))
 
+
+(defn default-credentials-provider
+  "aws-api's default chain, with [[credential-process-provider]] in it.
+
+  aws-api's own profile provider reads static keys out of the profile and nothing else, so
+  a profile that shells out for its credentials — which is what IAM Identity Center writes,
+  and what `aws-sso` writes — resolves to no credentials without this.
+
+  A named `:profile-name` is tried first. aws-api's chain consults the environment and
+  `AWS_PROFILE` rather than the name asked for here, so letting it go first would answer
+  with whatever identity the shell happens to hold instead of the one the caller named.
+  With no `:profile-name` there is no such conflict, and the environment goes first.
+
+  Pass `:http-client` to share one across clients; the default builds its own.
+
+  Options:
+
+    :profile-name - profile to read `credential_process` from, defaults to `AWS_PROFILE`
+    :http-client  - http client for the rest of the chain, defaults to a fresh one"
+  [& {:keys [profile-name http-client]
+      :or {http-client (aws/default-http-client)}}]
+  (creds/chain-credentials-provider
+   (if profile-name
+     [(credential-process-provider profile-name)
+      (creds/default-credentials-provider http-client)]
+     [(creds/default-credentials-provider http-client)
+      (credential-process-provider)])))
+
+
 (comment
-  (require '[cognitect.aws.client.api :as aws]
-           '[cognitect.aws.region :as region])
+  (require '[cognitect.aws.region :as region])
 
   (let [profile "sso.core-shared-dev.read-dev"
         rp (region/profile-region-provider profile)
-        cp (credential-process-provider profile)
+        cp (default-credentials-provider :profile-name profile)
         client (aws/client {:api :s3
                             :region-provider rp
                             :credentials-provider cp})]

@@ -2,27 +2,21 @@
   (:refer-clojure :exclude [test])
   (:require
     [clojure.tools.build.api :as b] ; for b/git-count-revs
-    [org.corfield.build :as bb]
-    [clojure.edn :as edn]))
+    [org.corfield.build :as bb]))
 
 (def lib 'com.latacora/backsaws)
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 
 (defn test "Run the tests." [opts]
-  (bb/run-tests opts))
-
-(def ^:private aws-api-releases-file
-  "https://raw.githubusercontent.com/cognitect-labs/aws-api/master/latest-releases.edn")
-
-(-> aws-api-releases-file
-    slurp
-    edn/read-string
-    )
+  ;; The :test alias has no :main-opts, on purpose (see deps.edn), and build-clj falls back
+  ;; to Cognitect's test-runner when it finds none — which is not a dependency here, so
+  ;; this task and `ci` below both died on a missing namespace. Name kaocha instead.
+  (bb/run-tests (assoc opts :main-args ["-m" "kaocha.runner"])))
 
 (defn ci "Run the CI pipeline of tests (and build the JAR)." [opts]
   (-> opts
       (assoc :lib lib :version version)
-      (bb/run-tests)
+      (test)
       (bb/clean)
       (bb/jar)))
 

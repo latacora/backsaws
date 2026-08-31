@@ -36,11 +36,16 @@
      :next-request (#'p/next-request-from-mapping
                     {:NextContinuationToken :ContinuationToken})}]
 
+   ;; ListBuckets grew MaxBuckets/ContinuationToken, so it pages now and the marker
+   ;; carries the same name in the request as in the response. AWS only sends the
+   ;; token back when there is another page, which is what makes it the truncation
+   ;; signal here; ListObjectsV2 below says IsTruncated instead.
    [:s3
     :ListBuckets
     {:results :Buckets
-     :truncated? (#'p/constantly* false)
-     :next-request ::p/not-paginated}]
+     :truncated? (#'p/some-fn* #{:ContinuationToken})
+     :next-request (#'p/next-request-from-mapping
+                    {:ContinuationToken :ContinuationToken})}]
 
    [:codecommit
     :ListRepositories

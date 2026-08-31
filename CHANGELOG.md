@@ -14,8 +14,32 @@ of [Keep a Changelog].
 - A [`CredentialsProvider`][CredentialsProvider] that supports
   [`credential_process`][credential_process] ([#1])
 
+### Changed
+
+- `paginated-invoke` pages S3's `ListBuckets`, which grew `MaxBuckets` and `ContinuationToken`.
+  Callers whose `com.cognitect.aws/s3` is recent enough to describe those already get this, since
+  the paging opts are inferred from the service descriptor rather than written down here ([#15])
+- `org.clojure/data.json` is a declared dependency. `credentials-providers` reads the credential
+  process' output with it and reached it through `com.cognitect.aws/api` until now ([#15])
+- Dependencies and pinned GitHub Actions are current, and Clojure is 1.12.5 ([#15])
+
+### Fixed
+
+- CI runs again. Its job asked for `ubuntu-20.04`, which GitHub retired, and a job naming a retired
+  runner sits queued until GitHub cancels it, so every run since September 2025 reported `cancelled`
+  rather than failing — including the ones behind merged pull requests ([#15])
+- `clojure -T:build test` and `clojure -T:build ci` run the tests instead of dying on a missing
+  namespace. build-clj reaches for Cognitect's test-runner when the `:test` alias declares no
+  `:main-opts`, which this one deliberately does not, so both tasks name kaocha now ([#15])
+- A built jar's pom describes backsaws. `b/write-pom` synchronizes from `./pom.xml`, and that file
+  still carried the name, description and repository URL of the template this project started from
+  ([#15])
+- Loading `build.clj` no longer fetches aws-api's `latest-releases.edn`. The result was discarded,
+  so every `clojure -T:build` invocation spent a network call on nothing ([#15])
+
 
 [#1]: https://github.com/latacora/backsaws/pull/1
+[#15]: https://github.com/latacora/backsaws/pull/15
 [aws-vault]: https://github.com/99designs/aws-vault
 [credential_process]: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sourcing-external.html
 [CredentialsProvider]: https://github.com/cognitect-labs/aws-api#credentials
